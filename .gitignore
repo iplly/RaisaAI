@@ -1,0 +1,42 @@
+# Сборка
+build/
+build-release/
+CMakeCache.txt
+CMakeFiles/
+__pycache__/
+ffmpeg_c_wrapper.h
+cmake_install.cmake
+Makefile
+compile_commands.json
+*.o
+*.a
+*.so
+
+# Бинарники
+Raisa
+Raisa.exe
+
+# Токены
+vk.conf
+
+# Инструменты
+.cache/
+AGENT.md
+
+# Модели
+Models/
+
+# Аудио
+*.wav
+*.mp3
+
+# Логи и временные файлы
+*.log
+ttl.log
+response.txt
+response_mix.txt
+getIdsBySource.txt
+tempFiles/
+/tmp/
+
+!assets/*.mp3

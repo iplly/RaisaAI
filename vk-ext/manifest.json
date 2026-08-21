@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "VK Cookie для Raisa",
+  "version": "1.0",
+  "description": "Отправляет свежие куки vk.ru в локальный приёмник Raisa (127.0.0.1:8002)",
+  "permissions": ["cookies"],
+  "host_permissions": [
+    "*://vk.ru/*",
+    "*://*.vk.ru/*",
+    "*://vk.com/*",
+    "*://*.vk.com/*",
+    "*://login.vk.ru/*",
+    "*://m.vk.ru/*",
+    "http://127.0.0.1:8002/*"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "action": {
+    "default_title": "VK Cookies: обновить сейчас",
+    "default_popup": "popup.html"
+  }
+}
