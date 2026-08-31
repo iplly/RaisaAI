@@ -109,19 +109,37 @@ else
   warn "vosk-model-small не найдена в $VOSK_MODEL_DIR"
   mkdir -p "$MODELS_DIR"
   echo "  Скачиваю vosk-model-small-ru-0.22 (46 МБ)..."
-  if wget -q --show-progress -O "$VOSK_ZIP" "$VOSK_URL"; then
-    unzip -qo "$VOSK_ZIP" -d /tmp/
-    if [ -d "/tmp/vosk-model-small-ru-0.22" ]; then
-      rm -rf "$VOSK_MODEL_DIR"
-      mv "/tmp/vosk-model-small-ru-0.22" "$VOSK_MODEL_DIR"
+  echo "  (при медленном соединении загрузка прервётся сама — докачается при повторном запуске)"
+  VOSK_EXPECTED=46236750   # известный Content-Length (байт)
+  # Детерминированный лимит: одна попытка, жёсткий таймаут 90 сек,
+  # при обрыве -C - докачает при следующем запуске. Не зависает.
+  if timeout 90 curl -fL -C - \
+       --connect-timeout 20 \
+       -o "$VOSK_ZIP" "$VOSK_URL" 2>/dev/null; then
+    VOSK_ACTUAL=$(stat -c%s "$VOSK_ZIP" 2>/dev/null || echo 0)
+    if [ "$VOSK_ACTUAL" -lt "$VOSK_EXPECTED" ]; then
+      fail "Модель скачалась не полностью ($VOSK_ACTUAL из $VOSK_EXPECTED байт)"
       rm -f "$VOSK_ZIP"
-      ok "vosk-model-small установлена"
+      echo "  Сеть до alphacephei.com медленная. Повторите ./setup.sh позже (загрузка докачается)."
+      echo "  Либо скачайте вручную и распакуйте в $VOSK_MODEL_DIR:"
+      echo "    wget $VOSK_URL"
+      echo "    unzip vosk-model-small-ru-0.22.zip"
+      echo "    mv vosk-model-small-ru-0.22 $VOSK_MODEL_DIR"
     else
-      fail "Не удалось распаковать модель (ожидалась папка vosk-model-small-ru-0.22)"
+      unzip -qo "$VOSK_ZIP" -d /tmp/
+      if [ -d "/tmp/vosk-model-small-ru-0.22" ]; then
+        rm -rf "$VOSK_MODEL_DIR"
+        mv "/tmp/vosk-model-small-ru-0.22" "$VOSK_MODEL_DIR"
+        rm -f "$VOSK_ZIP"
+        ok "vosk-model-small установлена"
+      else
+        fail "Не удалось распаковать модель (ожидалась папка vosk-model-small-ru-0.22)"
+      fi
     fi
   else
     fail "Не удалось скачать модель с $VOSK_URL"
-    echo "  Скачайте вручную и распакуйте в $VOSK_MODEL_DIR:"
+    echo "  Сеть до alphacephei.com медленная или недоступна. Повторите позже."
+    echo "  Либо скачайте вручную и распакуйте в $VOSK_MODEL_DIR:"
     echo "    wget $VOSK_URL"
     echo "    unzip vosk-model-small-ru-0.22.zip"
     echo "    mv vosk-model-small-ru-0.22 $VOSK_MODEL_DIR"
