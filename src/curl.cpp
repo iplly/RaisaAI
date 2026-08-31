@@ -13,7 +13,6 @@ static size_t BodyRead(void *data, size_t size, size_t nmemb, void *userdata) {
 
 Curl::Curl(std::string url) {
   this->url = url;
-  curl_global_init(CURL_GLOBAL_DEFAULT);
   curl = curl_easy_init();
   if (!curl) {
     throw std::runtime_error("Ошибка CURL");

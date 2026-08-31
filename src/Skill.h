@@ -97,7 +97,6 @@ class TimerSkill : public Skill {
   using TimePoint = Clock::time_point;
   std::mutex mtx;
   std::condition_variable cv;
-  std::jthread worker;
   std::atomic<bool> stopped{false};
 
   struct Timer {
@@ -128,7 +127,7 @@ struct Skills {
   // std::unique_ptr<YTMusicSkill> ytmusic;
   std::unique_ptr<VKMusicSkill> vkmusic;
   std::unique_ptr<LlmSkill> llmskill;
-  std::unique_ptr<TimerSkill> tiemrskill;
+  std::unique_ptr<TimerSkill> timerskill;
 };
 
 struct SkillReg {

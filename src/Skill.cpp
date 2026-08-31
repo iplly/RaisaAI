@@ -27,11 +27,11 @@ std::vector<SkillReg> g_registry = {
      {},
      [](json a) { g_skills.vkmusic->execute(a); }},
     {"TimerSkill", timerTool, {}, [](json a) {
-       g_skills.tiemrskill->execute(a);
+       g_skills.timerskill->execute(a);
      }}};
 
 json qwen1_7Data =
-    "    {\"model\":\"Qwen1.7\",\"keep_alive\":-1,\"messages\":[{\"role\": "
+    "    {\"model\":\"gemma4:e4b\",\"keep_alive\":-1,\"messages\":[{\"role\": "
     "\"system\", \"content\":\"Ты — роутер команд голосового ассистента Raisa. "
     "Просьба про музыку (включи, поставь, вруби, послушай, песня, трек, "
     "исполнитель, группа, альбом, микс, жанр) → инструмент VKMusicSkill. В "
@@ -45,7 +45,7 @@ void skill_init() {
   // g_skills.ytmusic = std::make_unique<YTMusicSkill>();
   g_skills.llmskill = std::make_unique<LlmSkill>();
   g_skills.vkmusic = std::make_unique<VKMusicSkill>();
-  g_skills.tiemrskill = std::make_unique<TimerSkill>();
+  g_skills.timerskill = std::make_unique<TimerSkill>();
 }
 
 json SkillChoser(std::string message) {

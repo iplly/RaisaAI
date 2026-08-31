@@ -173,7 +173,7 @@ int wordsToNumber(std::string w) {
         int scale = itScale->second;
         if (total == 0)
           total = 1;
-        total += total * scale;
+        total *= scale;
       }
     }
   }

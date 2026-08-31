@@ -21,7 +21,7 @@ void LlmSkill::start(std::string message) {
   try {
     Curl curlLlm("http://localhost:11434/api/chat");
     std::string headers = "Content-Type: application/json";
-    json jsonData = {{"model", "Qwen3.2"},
+    json jsonData = {{"model", "gemma4:Raia"},
                      {"stream", true},
                      {"keep_alive", -1},
                      {"messages", json::array({})}};

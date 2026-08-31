@@ -14,7 +14,6 @@ AudioController::AudioController(std::string sample_rate, std::string channels,
   const AVInputFormat *inputFmt = av_find_input_format("pulse");
   if (!inputFmt) {
     throw std::runtime_error("Не найден формат pulseaudio");
-    ;
   }
 
   AVDictionary *options = nullptr;

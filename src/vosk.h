@@ -15,5 +15,9 @@ public:
   std::string getPartial();
   std::string getFull();
   void reset();
+  SpeechRecognizer(SpeechRecognizer const &) = delete;
+  SpeechRecognizer &operator=(SpeechRecognizer const &) = delete;
+  SpeechRecognizer(SpeechRecognizer &&) = delete;
+  SpeechRecognizer &operator=(SpeechRecognizer &&) = delete;
   ~SpeechRecognizer();
 };

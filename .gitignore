@@ -21,7 +21,9 @@ vk.conf
 
 # Инструменты
 .cache/
+services/
 AGENT.md
+TODO.md
 
 # Модели
 Models/
@@ -40,3 +42,5 @@ tempFiles/
 /tmp/
 
 !assets/*.mp3
+
+youtubemusic/

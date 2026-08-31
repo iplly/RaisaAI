@@ -19,5 +19,9 @@ public:
   void addHeaders(const std::string &headers);
   CURLcode post(const json &body, const BodyCallback &onBody);
   CURLcode get(std::string param, const BodyCallback &onBody);
+  Curl(Curl const &) = delete;
+  Curl &operator=(Curl const &) = delete;
+  Curl(Curl &&) = delete;
+  Curl &operator=(Curl &&) = delete;
   ~Curl();
 };

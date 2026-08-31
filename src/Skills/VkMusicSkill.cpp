@@ -66,7 +66,8 @@ std::deque<Track> VKMusicSkill::search(std::string query) {
   std::deque<Track> queueTracks = vk("search", query);
   if (queueTracks.empty())
     throw std::runtime_error("Ошибка поиска ");
-  queueTracks.erase(queueTracks.begin() + 3, queueTracks.end());
+  if (queueTracks.size() > 3)
+    queueTracks.resize(3);
   return queueTracks;
 }
 
@@ -152,8 +153,8 @@ void VKMusicSkill::player() {
   std::future<std::deque<Track>> prefetch;
   std::string currentTrack = "spmsE_9Np6M";
 
-  try {
-    while (!trackQueue.primary.empty() || !trackQueue.second.empty()) {
+  while (!trackQueue.primary.empty() || !trackQueue.second.empty()) {
+    try {
       if (stopFlag)
         return;
 
@@ -171,12 +172,7 @@ void VKMusicSkill::player() {
       if (stopFlag)
         return;
 
-      std::cout << "Очередь primary: \n";
-      for (auto &&[title, artist, id] : trackQueue.primary)
-        std::cout << artist << " -- " << title << "\n";
-      std::cout << "\nОчередь second: \n";
-      for (auto &&[title, artist, id] : trackQueue.second)
-        std::cout << artist << " -- " << title << "\n";
+      std::cout << trackQueue << "\n";
 
       std::cout << "\nВключаю: " << artist << " -- " << title << "\n\n";
       g_vkMpvPid = spawnMPV(stream_url);
@@ -187,9 +183,9 @@ void VKMusicSkill::player() {
         trackQueue.insert(mixTracks);
         prefetch = {};
       }
+    } catch (const std::exception &e) {
+      std::cout << "Ошибка проигрывания музыки " << e.what() << "\n\n";
     }
-  } catch (const std::exception &e) {
-    std::cout << "Ошибка проигрывания музыки " << e.what() << "\n\n";
   }
 }
 

@@ -40,7 +40,7 @@ void debugInit(VoiceController &vc) {
       std::cout << "  " << title << " -- " << artist << " : " << id << "\n";
     std::cout << "Таймеры/будильники:\n";
     for (auto &[when, name, task, period, periodDays] :
-         g_skills.tiemrskill->timers) {
+         g_skills.timerskill->timers) {
       auto hours =
           std::chrono::duration_cast<std::chrono::hours>(when - Clock::now());
       auto mins = std::chrono::duration_cast<std::chrono::minutes>(
@@ -73,10 +73,10 @@ void debugInit(VoiceController &vc) {
   g_dbg["weather"] = {
       [](auto a) { g_skills.weather->execute({{"city", join(a)}}); }};
   g_dbg["timer"] = {[](auto a) {
-    g_skills.tiemrskill->execute({{"type", "timer"}, {"minutes", stoi(a[0])}});
+    g_skills.timerskill->execute({{"type", "timer"}, {"minutes", stoi(a[0])}});
   }};
   g_dbg["alarm"] = {[](auto a) {
-    g_skills.tiemrskill->execute({{"type", "alarm"}, {"time", a[0]}});
+    g_skills.timerskill->execute({{"type", "alarm"}, {"time", a[0]}});
   }};
   g_dbg["llm"] = {[](auto a) {
     std::cout << g_skills.llmskill->execute({{"message", join(a)}});

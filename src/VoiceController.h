@@ -34,4 +34,8 @@ public:
   friend void debugInit(VoiceController &vc);
   VoiceController();
   void Run();
+  VoiceController(VoiceController const &) = delete;
+  VoiceController &operator=(VoiceController const &) = delete;
+  VoiceController(VoiceController &&) = delete;
+  VoiceController &operator=(VoiceController &&) = delete;
 };

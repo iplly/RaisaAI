@@ -40,9 +40,12 @@ bool VoiceController::quickCommand(const std::string &full) {
     mpvTogglePause();
     return 1;
   } else if (ctre::search<"(тише)">(full)) {
-    if (ctre::search<"(?i)в\\s+(\\S+)\\s+раза">(full)) {
+    if (ctre::search<"(?i)в\\s+(\\S+)\\s+раз">(full)) {
       int volume = wordsToNumber(full);
-      g_volume = std::max(0, g_volume / volume);
+      if (volume != 0)
+        g_volume = std::max(0, g_volume / volume);
+      else
+        g_volume = 0;
     } else
       g_volume = std::max(0, g_volume - 15);
     mpvSetVolume(g_volume);
@@ -50,7 +53,7 @@ bool VoiceController::quickCommand(const std::string &full) {
     return 1;
 
   } else if (ctre::search<"(громче)">(full)) {
-    if (ctre::search<"(?i)в\\s+(\\S+)\\s+раза">(full)) {
+    if (ctre::search<"(?i)в\\s+(\\S+)\\s+раз">(full)) {
       int volume = wordsToNumber(full);
       g_volume = std::min(100, g_volume * volume);
     } else
@@ -104,7 +107,9 @@ bool VoiceController::handleCommand(const std::string &full) {
 
 VoiceController::VoiceController()
     : audio("48000", "1", "Raisa"),
-      vosk("./Models/vosk-model-small/", 48000.0) {}
+      vosk("./Models/vosk-model-small/", 48000.0) {
+  curl_global_init(CURL_GLOBAL_DEFAULT);
+}
 
 void VoiceController::Run() {
   std::thread(&VoiceController::processor, this).detach();
@@ -161,7 +166,7 @@ void VoiceController::listener() {
         av_packet_unref(&packet);
       }
     } catch (std::exception &e) {
-      std::cout << "Неизветная ошибка " << e.what() << "\n\n";
+      std::cout << "Неизвестная ошибка " << e.what() << "\n\n";
       continue;
     }
   }
@@ -191,48 +196,57 @@ void VoiceController::processor() {
   using namespace std::chrono;
   LlmSkill *llm = g_skills.llmskill.get();
   while (running) {
-    processing = false;
-    std::string filePath = taskQueue.pop();
-    if (filePath.empty())
-      break;
-    auto start = steady_clock::now();
-    processing = true;
-    std::string full = fullWhisper(filePath);
-    std::cout << "user message: " << full << "\n\n";
-
-    if (!handleCommand(full)) {
-
-      std::cout << "Обрабатывю запрос" << "\n ";
-      json tool = SkillChoser(full);
-      if (skip.exchange(false)) {
-        std::cout << "Задача прервана" << "\n\n";
-        continue;
+    try {
+      processing = false;
+      std::string filePath = taskQueue.pop();
+      if (filePath.empty())
+        break;
+      auto start = steady_clock::now();
+      processing = true;
+      std::string full;
+      try {
+        full = fullWhisper(filePath);
+      } catch (const std::exception &e) {
+        std::cout << "Ошибка Whisper: " << e.what() << "\n\n";
       }
-      std::cout << "tool: " << tool << "\n\n";
-      if (tool.is_null()) {
-        if (!llm->running()) {
-          json message = {{"message", full}};
-          std::cout << llm->execute(message);
+      std::cout << "user message: " << full << "\n\n";
+
+      if (!handleCommand(full)) {
+
+        std::cout << "Обрабатывю запрос" << "\n ";
+        json tool = SkillChoser(full);
+        if (skip.exchange(false)) {
+          std::cout << "Задача прервана" << "\n\n";
+          continue;
         }
-        continue;
-      }
-      std::string name = tool["function"]["name"];
-      json arguments = tool["function"]["arguments"];
-      if (name == "WeatherSkill") {
-        arguments["detals"] = true;
-        g_skills.weather->execute(arguments);
-      }
-      if (name == "VKMusicSkill") {
-        g_skills.vkmusic->execute(arguments);
-      }
-      if (name == "TimerSkill") {
-        g_skills.tiemrskill->execute(arguments);
-      }
+        std::cout << "tool: " << tool << "\n\n";
+        if (tool.is_null()) {
+          if (!llm->running()) {
+            json message = {{"message", full}};
+            std::cout << llm->execute(message);
+          }
+          continue;
+        }
+        std::string name = tool["function"]["name"];
+        json arguments = tool["function"]["arguments"];
+        if (name == "WeatherSkill") {
+          arguments["detals"] = true;
+          g_skills.weather->execute(arguments);
+        }
+        if (name == "VKMusicSkill") {
+          g_skills.vkmusic->execute(arguments);
+        }
+        if (name == "TimerSkill") {
+          g_skills.timerskill->execute(arguments);
+        }
 
-      skip = false;
+        skip = false;
+      }
+      auto end = steady_clock::now();
+      auto diff = duration_cast<seconds>(end - start).count();
+      std::cout << "Время выполнения: " << diff << "s\n\n";
+    } catch (const std::exception &e) {
+      std::cout << "Ошибка обработчика: " << e.what() << "\n\n";
     }
-    auto end = steady_clock::now();
-    auto diff = duration_cast<seconds>(end - start).count();
-    std::cout << "Время выполнения: " << diff << "s\n\n";
   }
 }

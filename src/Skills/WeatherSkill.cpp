@@ -123,7 +123,7 @@ std::string WeatherSkill::start(std::string city, bool detal) {
     if (detal) {
       std::cout << "Погода в "
                 << toPrepositional(geoJson["name"].get<std::string>())
-                << ": сейчас +" << temp << "°, ощущается +" << feels << "°, "
+                << ": сейчас " << temp << "°, ощущается " << feels << "°, "
                 << weather << ".\n";
       std::cout << "Влажность " << humidity << "%, ветер " << wind_speed
                 << " км/ч (" << wind_dir_text << "), давление " << pressure
