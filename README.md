@@ -143,5 +143,5 @@ kill $(cat /tmp/raisa/*.pid)
 └── Models/                 # модели Vosk/whisper
 ```
 
-`vk-ext/` — отдельный репозиторий Firefox-расширения и приёмника VK-кук.
-См. `vk-ext/README.md`.
+`vk-ext/` — отдельный репозиторий Firefox-расширения и приёмника VK-кук:
+https://github.com/iplly/vk-ext
