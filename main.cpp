@@ -1,9 +1,13 @@
 #include "./src/Skill.h"
 #include "./src/VoiceController.h"
 #include "./src/debug.h"
+#include "Config.h"
 #include "control.h"
+#include <algorithm>
 #include <csignal>
+#include <cstdint>
 #include <exception>
+#include <fstream>
 #include <iostream>
 #include <libavcodec/packet.h>
 #include <libavutil/dict.h>
@@ -22,6 +26,12 @@ int main() {
   try {
     signal(SIGTERM, shutdownHandler);
     signal(SIGINT, shutdownHandler);
+    Config::instance().load();
+    std::ifstream in(dirControl + "volume");
+    uint8_t volume = 100;
+    if (in >> volume) {
+    }
+    g_volume = std::clamp<int>(volume, 0, 100);
     VoiceController voice_controller;
     skill_init();
     debugInit(voice_controller);

@@ -1,4 +1,5 @@
 #include "../Skill.h"
+#include "Config.h"
 #include <iostream>
 
 std::string LlmSkill::name() const { return "LlmSkill"; }
@@ -19,9 +20,9 @@ std::string LlmSkill::execute(json j) {
 }
 void LlmSkill::start(std::string message) {
   try {
-    Curl curlLlm("http://localhost:11434/api/chat");
+    Curl curlLlm(Config::instance().get("OLLAMA_URL") + "/api/chat");
     std::string headers = "Content-Type: application/json";
-    json jsonData = {{"model", "gemma4:Raia"},
+    json jsonData = {{"model", Config::instance().get("LLM_MODEL")},
                      {"stream", true},
                      {"keep_alive", -1},
                      {"messages", json::array({})}};

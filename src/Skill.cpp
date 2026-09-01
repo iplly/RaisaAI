@@ -1,4 +1,5 @@
 #include "Skill.h"
+#include "Config.h"
 #include "Ollama.h"
 #include "SkillTool.h"
 #include "control.h"
@@ -31,7 +32,7 @@ std::vector<SkillReg> g_registry = {
      }}};
 
 json qwen1_7Data =
-    "    {\"model\":\"gemma4:e4b\",\"keep_alive\":-1,\"messages\":[{\"role\": "
+    "    {\"model\":\"\",\"keep_alive\":-1,\"messages\":[{\"role\": "
     "\"system\", \"content\":\"Ты — роутер команд голосового ассистента Raisa. "
     "Просьба про музыку (включи, поставь, вруби, послушай, песня, трек, "
     "исполнитель, группа, альбом, микс, жанр) → инструмент VKMusicSkill. В "
@@ -41,6 +42,7 @@ json qwen1_7Data =
     "крови\\\". Про погоду или температуру → WeatherSkill.\"}],\"think\":false,\"tools\":[],\"tool_choice\":\"required\",\"stream\":false}"_json;
 
 void skill_init() {
+  qwen1_7Data["model"] = Config::instance().get("ROUTER_MODEL");
   g_skills.weather = std::make_unique<WeatherSkill>();
   // g_skills.ytmusic = std::make_unique<YTMusicSkill>();
   g_skills.llmskill = std::make_unique<LlmSkill>();

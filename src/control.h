@@ -11,10 +11,12 @@ extern std::atomic<pid_t> g_vkMpvPid;
 extern std::atomic<uint8_t> g_volume;
 extern std::atomic<uint8_t> g_actual;
 extern std::atomic<bool> g_pause;
+extern const std::string dirControl;
 
 std::string exec(std::string args);
 void mpvSetVolume_(char v, pid_t pid = g_vkMpvPid);
 void mpvSetVolume(char v, pid_t pid = g_vkMpvPid);
+void setVolume(uint8_t v);
 void mpvTogglePause(pid_t pid = g_vkMpvPid);
 int wordsToNumber(std::string);
 std::string toLowerUtf8(const std::string &s);

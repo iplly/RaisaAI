@@ -1,4 +1,5 @@
 #include "VoiceController.h"
+#include "Config.h"
 #include "Skill.h"
 #include "control.h"
 #include <algorithm>
@@ -15,9 +16,9 @@
 #include <vector>
 
 static std::string fullWhisper(std::string filePath) {
-  std::string out = exec("curl -s -F file=@" + filePath +
-                         " -F response_format=json "
-                         "http://127.0.0.1:8000/inference");
+  std::string out =
+      exec("curl -s -F file=@" + filePath + " -F response_format=json " +
+           Config::instance().get("WHISPER_URL"));
   return json::parse(out)["text"];
 }
 
@@ -43,11 +44,11 @@ bool VoiceController::quickCommand(const std::string &full) {
     if (ctre::search<"(?i)в\\s+(\\S+)\\s+раз">(full)) {
       int volume = wordsToNumber(full);
       if (volume != 0)
-        g_volume = std::max(0, g_volume / volume);
+        setVolume(std::max(0, g_volume / volume));
       else
-        g_volume = 0;
+        setVolume(0);
     } else
-      g_volume = std::max(0, g_volume - 15);
+      setVolume(std::max(0, g_volume - 15));
     mpvSetVolume(g_volume);
     std::cout << "g_volume: " << (int)g_volume << "\n\n";
     return 1;
@@ -55,9 +56,9 @@ bool VoiceController::quickCommand(const std::string &full) {
   } else if (ctre::search<"(громче)">(full)) {
     if (ctre::search<"(?i)в\\s+(\\S+)\\s+раз">(full)) {
       int volume = wordsToNumber(full);
-      g_volume = std::min(100, g_volume * volume);
+      setVolume(std::min(100, g_volume * volume));
     } else
-      g_volume = std::min(100, g_volume + 15);
+      setVolume(std::min(100, g_volume + 15));
     mpvSetVolume(g_volume);
     std::cout << "g_volume: " << (int)g_volume << "\n\n";
     return 1;
@@ -65,11 +66,11 @@ bool VoiceController::quickCommand(const std::string &full) {
   } else if (ctre::search<"(громкость|звук на)">(full)) {
     int volume = wordsToNumber(full);
     if (volume <= 10)
-      g_volume = volume * 10;
+      setVolume(volume * 10);
     else if (volume > 100)
-      g_volume = 100;
+      setVolume(100);
     else
-      g_volume = volume;
+      setVolume(volume);
     mpvSetVolume(g_volume);
     std::cout << "g_volume: " << (int)g_volume << "\n\n";
     return 1;
@@ -106,8 +107,11 @@ bool VoiceController::handleCommand(const std::string &full) {
 }
 
 VoiceController::VoiceController()
-    : audio("48000", "1", "Raisa"),
-      vosk("./Models/vosk-model-small/", 48000.0) {
+    : audio(Config::instance().get("AUDIO_RATE"),
+            Config::instance().get("AUDIO_CHANNELS"),
+            Config::instance().get("AUDIO_DEVICE")),
+      vosk(Config::instance().get("VOSK_PATH"),
+           std::stof(Config::instance().get("AUDIO_RATE"))) {
   curl_global_init(CURL_GLOBAL_DEFAULT);
 }
 

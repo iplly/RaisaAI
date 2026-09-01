@@ -1,6 +1,9 @@
 #include "control.h"
 #include <csignal>
 #include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -17,6 +20,8 @@ std::atomic<uint8_t> g_volume{100};
 std::atomic<uint8_t> g_actual{100};
 std::atomic<bool> g_pause{false};
 std::mutex mtx;
+const std::string dirControl =
+    std::string(getenv("HOME")) + "/.local/share/raisa/";
 
 std::string exec(std::string args) {
   char buf[128];
@@ -47,9 +52,18 @@ static void smoothSetVolume(char target, pid_t pid) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
   }
 }
+void setVolume(uint8_t v) {
+  g_volume.store(v);
+  std::filesystem::create_directories(dirControl);
+  std::ofstream out(dirControl + "volume");
+  if (out)
+    out << (int)v;
+}
+
 void mpvSetVolume(char v, pid_t pid) {
   std::thread([v, pid]() { smoothSetVolume(v, pid); }).detach();
 }
+
 void mpvSetVolume_(char v, pid_t pid) {
   if (g_vkMpvPid <= 0)
     return;

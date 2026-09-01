@@ -22,8 +22,8 @@ vk.conf
 # Инструменты
 .cache/
 services/
-AGENT.md
 TODO.md
+whisper.cpp/
 
 # Модели
 Models/

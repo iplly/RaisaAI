@@ -14,16 +14,22 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELS_DIR="$ROOT/Models"
 VOSK_MODEL_DIR="$MODELS_DIR/vosk-model-small"
 VOSK_URL="https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip"
-VOSK_ZIP="/tmp/vosk-model-small-ru-0.22.zip"
+# Временный файл/каталог для распаковки кладём рядом с модели (внутри проекта),
+# чтобы скрипт был переносим между пользователями/машинами.
+VOSK_ZIP="$MODELS_DIR/vosk-model-small-ru-0.22.zip"
+VOSK_TMP="$MODELS_DIR/.tmp-vosk"
 WHISPER_PORT=8000
 VK_COOKIE_PORT=8002
-PIDFILE_DIR="${XDG_RUNTIME_DIR:-/tmp}/raisa"
+# PID и логи — в каталог времени выполнения (переносимо для любого пользователя)
+RUN_DIR="${XDG_RUNTIME_DIR:-/tmp}/raisa"
+PIDFILE_DIR="$RUN_DIR"
+LOG_DIR="$RUN_DIR"
 
 # --- Репозитории внешних компонентов (впишите ваши ссылки) ---
-# vk-ext: Firefox-расширение для передачи куки VK (vk_cookie_server.py)
-VK_EXT_REPO="${VK_EXT_REPO:-}"
 # vk.py: Python-мост к VK Music API
 VK_PY_REPO="${VK_PY_REPO:-}"
+# vk-ext: репозиторий (содержит vk_cookie_server.py; расширение ставится в браузер отдельно)
+VK_EXT_REPO="${VK_EXT_REPO:-}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -110,12 +116,12 @@ else
   mkdir -p "$MODELS_DIR"
   echo "  Скачиваю vosk-model-small-ru-0.22 (46 МБ)..."
   echo "  (при медленном соединении загрузка прервётся сама — докачается при повторном запуске)"
-  VOSK_EXPECTED=46236750   # известный Content-Length (байт)
+  VOSK_EXPECTED=46236750 # известный Content-Length (байт)
   # Детерминированный лимит: одна попытка, жёсткий таймаут 90 сек,
   # при обрыве -C - докачает при следующем запуске. Не зависает.
   if timeout 90 curl -fL -C - \
-       --connect-timeout 20 \
-       -o "$VOSK_ZIP" "$VOSK_URL" 2>/dev/null; then
+    --connect-timeout 20 \
+    -o "$VOSK_ZIP" "$VOSK_URL" 2>/dev/null; then
     VOSK_ACTUAL=$(stat -c%s "$VOSK_ZIP" 2>/dev/null || echo 0)
     if [ "$VOSK_ACTUAL" -lt "$VOSK_EXPECTED" ]; then
       fail "Модель скачалась не полностью ($VOSK_ACTUAL из $VOSK_EXPECTED байт)"
@@ -126,13 +132,15 @@ else
       echo "    unzip vosk-model-small-ru-0.22.zip"
       echo "    mv vosk-model-small-ru-0.22 $VOSK_MODEL_DIR"
     else
-      unzip -qo "$VOSK_ZIP" -d /tmp/
-      if [ -d "/tmp/vosk-model-small-ru-0.22" ]; then
+      unzip -qo "$VOSK_ZIP" -d "$VOSK_TMP"
+      if [ -d "$VOSK_TMP/vosk-model-small-ru-0.22" ]; then
         rm -rf "$VOSK_MODEL_DIR"
-        mv "/tmp/vosk-model-small-ru-0.22" "$VOSK_MODEL_DIR"
+        mv "$VOSK_TMP/vosk-model-small-ru-0.22" "$VOSK_MODEL_DIR"
+        rm -rf "$VOSK_TMP"
         rm -f "$VOSK_ZIP"
         ok "vosk-model-small установлена"
       else
+        rm -rf "$VOSK_TMP"
         fail "Не удалось распаковать модель (ожидалась папка vosk-model-small-ru-0.22)"
       fi
     fi
@@ -147,8 +155,8 @@ else
 fi
 echo ""
 
-# --- 4.5. Внешние компоненты (vk.py, vk-ext) из git ---
-echo "5. Внешние компоненты (vk.py, vk-ext)..."
+# --- 4.5. Python-мост vk.py из git ---
+echo "5. Python-мост vk.py..."
 ensure_repo() {
   local url="$1" dest="$2"
   if [ -d "$dest/.git" ]; then
@@ -175,13 +183,19 @@ else
   fi
 fi
 
+echo "   vk-cookie-server (из vk-ext репозитория)..."
 if [ -n "$VK_EXT_REPO" ]; then
   ensure_repo "$VK_EXT_REPO" "$ROOT/vk-ext"
+  if [ -f "$ROOT/vk-ext/vk_cookie_server.py" ]; then
+    ok "vk_cookie_server.py: доступен ($ROOT/vk-ext/vk_cookie_server.py)"
+  else
+    fail "vk_cookie_server.py не найден в $ROOT/vk-ext"
+  fi
 else
   if [ -f "$ROOT/vk-ext/vk_cookie_server.py" ]; then
-    ok "vk-ext: локально"
+    ok "vk_cookie_server.py: локально"
   else
-    warn "vk-ext не найдена. Укажите VK_EXT_REPO в setup.sh"
+    warn "vk_cookie_server.py не найден. Укажите VK_EXT_REPO в setup.sh"
   fi
 fi
 echo ""
@@ -190,10 +204,15 @@ echo ""
 if [ "$skip_whisper" = false ]; then
   echo "6. Проверка Whisper..."
   WHISPER_BIN=""
-  candidate="$ROOT/whisper-server"
-  if [ -x "$candidate" ]; then
-    WHISPER_BIN="$candidate"
-  fi
+  for candidate in \
+    "$ROOT/whisper-server" \
+    "$ROOT/whisper.cpp/build/bin/whisper-server" \
+    "$ROOT/build/bin/whisper-server"; do
+    if [ -x "$candidate" ]; then
+      WHISPER_BIN="$candidate"
+      break
+    fi
+  done
   if [ -z "$WHISPER_BIN" ] && command -v whisper-server >/dev/null 2>&1; then
     WHISPER_BIN="$(command -v whisper-server)"
   fi
@@ -205,7 +224,7 @@ if [ "$skip_whisper" = false ]; then
     read -rp "  Установить whisper.cpp из исходников? [y/N] " install_whisper
     if [ "$install_whisper" = "y" ] || [ "$install_whisper" = "Y" ]; then
       echo "  Клонирую whisper.cpp..."
-      WHISPER_SRC="$HOME/Git/whisper.cpp"
+      WHISPER_SRC="$ROOT/whisper.cpp"
       if [ -d "$WHISPER_SRC" ]; then
         ok "whisper.cpp уже есть в $WHISPER_SRC"
       else
@@ -225,10 +244,11 @@ if [ "$skip_whisper" = false ]; then
       fi
     else
       echo "  Пропущено. Установите вручную:"
-      echo "    git clone https://github.com/ggerganov/whisper.cpp ~/Git/whisper.cpp"
-      echo "    cd whisper.cpp && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build"
-      echo "  Модель для скачивания:"
-      echo "    Hugging Face: podlodka-turbo-q8_0.bin"
+      echo "    git clone https://github.com/ggerganov/whisper.cpp $ROOT/whisper.cpp"
+      echo "    cd $ROOT/whisper.cpp && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build"
+      echo "  Модель для скачивания (положите в $MODELS_DIR):"
+      echo "    Hugging Face: ggml-podlodka-turbo-q8_0.bin"
+      echo "    export WHISPER_MODEL=$MODELS_DIR/ggml-podlodka-turbo-q8_0.bin"
     fi
   fi
   echo ""
@@ -242,7 +262,7 @@ if [ "$check_only" = true ]; then
   echo "Проверка портов (check-only)..."
 else
   echo "7. Запуск сервисов..."
-  mkdir -p "$PIDFILE_DIR"
+  mkdir -p "$PIDFILE_DIR" "$LOG_DIR"
 fi
 
 # --- 7a. Whisper server ---
@@ -255,22 +275,29 @@ else
   elif [ -n "${WHISPER_BIN:-}" ] && [ -x "${WHISPER_BIN:-}" ]; then
     WHISPER_MODEL_PATH="${WHISPER_MODEL:-}"
     if [ -z "$WHISPER_MODEL_PATH" ]; then
-      warn "WHISPER_MODEL не задан. Укажите путь к модели (.bin файл):"
-      echo "    export WHISPER_MODEL=/path/to/ggml-podlodka-turbo-q8_0.bin"
-      echo "    ./setup.sh"
-    else
+      # по умолчанию ищем модель в $MODELS_DIR (переносимо)
+      if [ -f "$MODELS_DIR/ggml-podlodka-turbo-q8_0.bin" ]; then
+        WHISPER_MODEL_PATH="$MODELS_DIR/ggml-podlodka-turbo-q8_0.bin"
+      else
+        warn "WHISPER_MODEL не задан и модель не найдена в $MODELS_DIR."
+        echo "    Положите ggml-podlodka-turbo-q8_0.bin в $MODELS_DIR"
+        echo "    или укажите: export WHISPER_MODEL=/путь/к/модели.bin"
+        echo "    затем: ./setup.sh"
+      fi
+    fi
+    if [ -n "$WHISPER_MODEL_PATH" ]; then
       nohup "$WHISPER_BIN" \
         -m "$WHISPER_MODEL_PATH" \
         --host 0.0.0.0 \
         --port "$WHISPER_PORT" \
         -l ru \
-        >/tmp/raisa-whisper.log 2>&1 &
+        >"$LOG_DIR/raisa-whisper.log" 2>&1 &
       echo $! >"$PIDFILE_DIR/whisper-server.pid"
       sleep 1
       if port_in_use "$WHISPER_PORT"; then
         ok "whisper-server запущен (PID $(cat "$PIDFILE_DIR/whisper-server.pid"))"
       else
-        fail "whisper-server не запустился (см. /tmp/raisa-whisper.log)"
+        fail "whisper-server не запустился (см. $LOG_DIR/raisa-whisper.log)"
       fi
     fi
   else
@@ -289,13 +316,13 @@ else
     if [ -f "$ROOT/vk-ext/vk_cookie_server.py" ]; then
       nohup python3 "$ROOT/vk-ext/vk_cookie_server.py" \
         --config "$ROOT/vk.conf" \
-        >/tmp/raisa-vk-cookie.log 2>&1 &
+        >"$LOG_DIR/raisa-vk-cookie.log" 2>&1 &
       echo $! >"$PIDFILE_DIR/vk-cookie-server.pid"
       sleep 1
       if port_in_use "$VK_COOKIE_PORT"; then
         ok "vk-cookie-server запущен (PID $(cat "$PIDFILE_DIR/vk-cookie-server.pid"))"
       else
-        fail "vk-cookie-server не запустился (см. /tmp/raisa-vk-cookie.log)"
+        fail "vk-cookie-server не запустился (см. $LOG_DIR/raisa-vk-cookie.log)"
       fi
     else
       fail "vk_cookie_server.py не найден"
