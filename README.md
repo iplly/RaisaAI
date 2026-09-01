@@ -86,7 +86,7 @@ AUDIO_CHANNELS=1
 VOSK_PATH=./Models/vosk-model-small/
 WHISPER_URL=http://127.0.0.1:8000/inference
 OLLAMA_URL=http://localhost:11434
-LLM_MODEL=gemma4:Raia
+LLM_MODEL=gemma4:e4b
 ROUTER_MODEL=gemma4:e4b
 ```
 
