@@ -145,7 +145,7 @@ void VoiceController::listener() {
 
       if (ctre::search<"(раиса|рая|раечка)">(speech) && triggered == 0) {
         mpvSetVolume(g_volume / 2);
-        std::cout << "g_volume: " << (int)g_volume << "\n\n Бухва: ";
+        std::cout << "g_volume: " << (int)g_volume << "\n\n";
         triggered = 1;
         vosk.reset();
         continue;

@@ -52,9 +52,18 @@ set(CMAKE_CXX_FLAGS_RELEASE
 
 find_package(PkgConfig REQUIRED)
 
-# Vosk
+# Vosk — ищем по всей стандартной системе (без жёстких PATHS), чтобы охватить
+# мультиарх-пути дистрибутивов (Debian/Ubuntu: /usr/lib/<triplet>) и ручную
+# установку (/usr/lib, /usr/local/lib).
 find_path(VOSK_INCLUDE_DIR NAMES vosk_api.h)
-find_library(VOSK_LIBRARY NAMES vosk libvosk PATHS /usr/lib /usr/local/lib)
+find_library(VOSK_LIBRARY NAMES vosk libvosk)
+if(NOT VOSK_INCLUDE_DIR OR NOT VOSK_LIBRARY)
+    message(FATAL_ERROR
+        "Vosk не найден (нужны vosk_api.h и libvosk).\n"
+        "Debian/Ubuntu:  sudo apt install libvosk-dev\n"
+        "Arch:           yay -S vosk-api\n"
+        "Либо соберите вручную и установите в /usr/local.")
+endif()
 
 # FFmpeg
 pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET

@@ -29,7 +29,7 @@ LOG_DIR="$RUN_DIR"
 # vk.py: Python-мост к VK Music API
 VK_PY_REPO="${VK_PY_REPO:-}"
 # vk-ext: репозиторий (содержит vk_cookie_server.py; расширение ставится в браузер отдельно)
-VK_EXT_REPO="${VK_EXT_REPO:-}"
+VK_EXT_REPO="https://github.com/iplly/vk-ext"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -119,7 +119,7 @@ else
   VOSK_EXPECTED=46236750 # известный Content-Length (байт)
   # Детерминированный лимит: одна попытка, жёсткий таймаут 90 сек,
   # при обрыве -C - докачает при следующем запуске. Не зависает.
-  if timeout 90 curl -fL -C - \
+  if timeout --foreground 90 curl -fL -C - \
     --connect-timeout 20 \
     -o "$VOSK_ZIP" "$VOSK_URL" 2>/dev/null; then
     VOSK_ACTUAL=$(stat -c%s "$VOSK_ZIP" 2>/dev/null || echo 0)
@@ -341,9 +341,17 @@ if [ -f "$ROOT/vk.conf" ]; then
     warn "vk.conf неполный. Нужны VK_ACCESS_TOKEN= и VK_COOKIE="
   fi
 else
-  fail "vk.conf не найден. Создайте вручную:"
-  echo "    VK_ACCESS_TOKEN=vk1.a...."
-  echo "    VK_COOKIE=remixsid=...; p=...; httoken=..."
+  warn "vk.conf не найден — создаю шаблон..."
+  cat >"$ROOT/vk.conf" <<'EOF'
+VK_ACCESS_TOKEN=
+VK_COOKIE=
+EOF
+  if [ -f "$ROOT/vk.conf" ]; then
+    ok "vk.conf создан ($ROOT/vk.conf)"
+    warn "Заполните в нём VK_ACCESS_TOKEN и VK_COOKIE (см. vk-ext)."
+  else
+    fail "Не удалось создать vk.conf"
+  fi
 fi
 echo ""
 

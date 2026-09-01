@@ -24,6 +24,7 @@ vk.conf
 services/
 TODO.md
 whisper.cpp/
+vk-ext/
 
 # Модели
 Models/
