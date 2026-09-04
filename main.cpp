@@ -28,10 +28,11 @@ int main() {
     signal(SIGINT, shutdownHandler);
     Config::instance().load();
     std::ifstream in(dirControl + "volume");
-    uint8_t volume = 100;
-    if (in >> volume) {
-    }
-    g_volume = std::clamp<int>(volume, 0, 100);
+    int volume = 100;
+    if (in >> volume)
+      volume = std::clamp(volume, 0, 100);
+    g_volume = static_cast<uint8_t>(volume);
+    std::cout << "g_volume " << (int)g_volume << "\n\n";
     VoiceController voice_controller;
     skill_init();
     debugInit(voice_controller);

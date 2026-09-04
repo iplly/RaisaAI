@@ -14,6 +14,7 @@ CLI, всегда печатает один JSON в stdout и завершает
         Если в запросе есть «микс»  -> вызывает audio.getStreamMixAudios
         Если в запросе есть «плейлист» -> открывает VK_PLAYLIST_ENTITY из vk.conf
     python3 vk.py mix                    -> {"ok": true, "tracks": [...]}   # 3 трека; повторный вызов = продолжение микса
+        python3 vk.py mix sad unknown ru  # с опциями: vibes, recognitions, langs
     python3 vk.py playlist <id>          -> {"ok": true, "tracks": [...]}   # id: только номер плейлиста (uid/access_key подхватятся сами: положительный = твой, отрицательный = сгенерированный алгоритмом); допустима и полная сущность <owner>_<id>_<key>
     python3 vk.py similar <id> [count]   -> похожие треки по seed (audio.getStreamMixAudios); id: <owner>_<track>
     python3 vk.py stream <id>            -> {"ok": true, "url": "..."}      # свежий m3u8; id: <owner>_<track>_<access_key>
@@ -292,10 +293,23 @@ def cmd_search(http, token, query):
     return {"ok": True, "tracks": tracks}
 
 
-def cmd_mix(http, token):
-    res = api_call(
-        http, "audio.getStreamMixAudios", {"mix_id": "common", "access_token": token}
-    )
+def build_mix_options(vibes=None, recognitions=None, langs=None):
+    options = {}
+    if vibes:
+        options["vibes"] = vibes if isinstance(vibes, list) else [vibes]
+    if recognitions:
+        options["recognitions"] = recognitions if isinstance(recognitions, list) else [recognitions]
+    if langs:
+        options["langs"] = langs if isinstance(langs, list) else [langs]
+    return options or None
+
+
+def cmd_mix(http, token, options=None):
+    body = {"mix_id": "common"}
+    if options:
+        body["options"] = json.dumps(options)
+    body["access_token"] = token
+    res = api_call(http, "audio.getStreamMixAudios", body)
     if not res["ok"]:
         return res
     tracks = tracks_of(res["data"])
@@ -508,9 +522,9 @@ def main():
         payload = {
             "ok": False,
             "error": (
-                f"usage: {sys.argv[0]} search <query> | mix | "
+                f"usage: {sys.argv[0]} search <query> | mix [vibes] [recognitions] [langs] | "
                 f"playlist <id> | playlist <owner>_<id>_<access_key> | "
-                f"similar <id> | stream <owner>_<track>_<access_key> | "
+                f"similar <id> [count] | stream <owner>_<track>_<access_key> | "
                 f"refresh | myplaylists | my [count] | playplaylist <название> | "
                 f"generated | playgenerated <название|id>"
             ),
@@ -559,7 +573,11 @@ def main():
                 else:
                     payload = cmd_search(http, token, query)
             elif args[0] in ("mix",):
-                payload = cmd_mix(http, token)
+                vibes = args[1] if len(args) > 1 else None
+                recognitions = args[2] if len(args) > 2 else None
+                langs = args[3] if len(args) > 3 else None
+                opts = build_mix_options(vibes, recognitions, langs)
+                payload = cmd_mix(http, token, opts)
             elif args[0] == "similar":
                 count = int(args[2]) if len(args) > 2 else 20
                 count = max(0, min(count, 500))

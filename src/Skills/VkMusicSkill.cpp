@@ -5,14 +5,21 @@
 #include <future>
 #include <iostream>
 #include <random>
+#include <string>
 #include <sys/wait.h>
 
 std::string VKMusicSkill::name() const { return "VKMusicSkill"; }
 std::string VKMusicSkill::description() const { return "VKMusicSkill"; }
 bool VKMusicSkill::running() const { return busy; }
 std::string VKMusicSkill::execute(json j) {
+  mixType m;
   std::string track = j.value("track", "");
   std::string type = j.value("type", "search");
+  if (type == "mix") {
+    m.vibes = j.value("vibes", "");
+    m.recognitions = j.value("recognitions", "");
+    m.langs = j.value("langs", "");
+  }
   std::cout << "VKMusicSkill execute: " << j << "\n\n";
   if (busy) {
     stop();
@@ -21,7 +28,7 @@ std::string VKMusicSkill::execute(json j) {
     worker.join();
   busy = true;
   stopFlag = false;
-  worker = std::jthread(&VKMusicSkill::start, this, track, type);
+  worker = std::jthread(&VKMusicSkill::start, this, track, type, m);
   return "";
 }
 
@@ -123,12 +130,12 @@ void VKMusicSkill::shuffle(std::deque<Track> &queue) {
 
 void VKMusicSkill::shuffleQueue() { trackQueue.shufflePrimary(); }
 
-void VKMusicSkill::start(std::string track, std::string type) {
+void VKMusicSkill::start(std::string track, std::string type, mixType mt) {
   std::deque<Track> first;
   trackQueue.clear();
   try {
     if (type == "mix") {
-      first = mix();
+      first = mix(mt);
       mixStatus = true;
     } else if (type == "playlist") {
       first = playlist(track);
@@ -139,7 +146,7 @@ void VKMusicSkill::start(std::string track, std::string type) {
       first = search(track);
     }
     trackQueue.set(std::move(first));
-    player();
+    player(mt);
   } catch (const std::exception &e) {
     std::cout << "Ошибка запуска музыки" << e.what() << "\n\n";
     busy = false;
@@ -149,7 +156,7 @@ void VKMusicSkill::start(std::string track, std::string type) {
   busy = false;
 }
 
-void VKMusicSkill::player() {
+void VKMusicSkill::player(mixType &mt) {
   std::future<std::deque<Track>> prefetch;
   std::string currentTrack = "spmsE_9Np6M";
 
@@ -166,7 +173,8 @@ void VKMusicSkill::player() {
           return similar(currentTrack);
         });
       else if (trackQueue.primary.empty() && mixStatus)
-        prefetch = std::async(std::launch::async, [this] { return mix(); });
+        prefetch =
+            std::async(std::launch::async, [this, mt] { return mix(mt); });
 
       std::string stream_url = getStream(id);
       if (stopFlag)
@@ -190,7 +198,9 @@ void VKMusicSkill::player() {
 }
 
 std::deque<Track> VKMusicSkill::my() { return vk("my", "2000"); }
-std::deque<Track> VKMusicSkill::mix() { return vk("mix"); }
+std::deque<Track> VKMusicSkill::mix(mixType mt) {
+  return vk("mix " + mt.vibes + " " + mt.recognitions + " " + mt.langs);
+}
 std::deque<Track> VKMusicSkill::similar(std::string id) {
   return vk("similar", id);
 }

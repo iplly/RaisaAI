@@ -58,17 +58,23 @@ public:
 };
 
 class VKMusicSkill : public Skill {
+  struct mixType {
+    std::string vibes = "";
+    std::string recognitions = "";
+    std::string langs = "";
+  };
+
   std::atomic<pid_t> childPid{-1};
   struct TrackQueue trackQueue;
   std::atomic<bool> mixStatus{false};
   std::mutex vkMtx;
-  void start(std::string, std::string);
-  void player();
+  void start(std::string, std::string, mixType);
+  void player(mixType &);
   void shuffle(std::deque<Track> &queue);
   void addTo(TrackQueue::Queue, std::string);
   std::deque<Track> vk(std::string cmd, std::string args = "");
   std::deque<Track> search(std::string);
-  std::deque<Track> mix();
+  std::deque<Track> mix(mixType mt = {"\"\"", "\"\"", "\"\""});
   std::deque<Track> my();
   std::deque<Track> similar(std::string);
   std::deque<Track> playlist(std::string);
