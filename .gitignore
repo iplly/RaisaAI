@@ -25,6 +25,7 @@ services/
 TODO.md
 whisper.cpp/
 vk-ext/
+llama.cpp-omni/
 
 # Модели
 Models/

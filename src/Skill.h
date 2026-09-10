@@ -1,8 +1,10 @@
 
 #pragma once
+#include "Config.h"
 #include "SkillTool.h"
 #include "TrackQueue.h"
 #include "VoiceController.h"
+#include "control.h"
 #include "curl.h"
 #include <atomic>
 #include <chrono>
@@ -47,7 +49,9 @@ public:
 
 class LlmSkill : public Skill {
   StreamBuffer stream;
+  LLMRequest context = {Config::instance().get("LLM_MODEL"), true, -1, {}, {}};
   void start(std::string);
+  std::vector<LLMMessage> ToolChoser(json);
 
 public:
   std::string name() const override;

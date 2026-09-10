@@ -98,7 +98,7 @@ std::string WeatherSkill::start(std::string city, bool detal) {
           result.append(data, len);
           return len;
         });
-    Response meteoJson = json::parse(result).get<Response>();
+    WeatherResponse meteoJson = json::parse(result).get<WeatherResponse>();
     const auto &cur = meteoJson.current;
     double temp = cur.temperature_2m;
     double feels = cur.apparent_temperature;

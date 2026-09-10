@@ -1,6 +1,11 @@
 #include "../Skill.h"
 #include "Config.h"
+#include "control.h"
+#include <algorithm>
 #include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
 
 std::string LlmSkill::name() const { return "LlmSkill"; }
 std::string LlmSkill::description() const { return ""; }
@@ -18,45 +23,107 @@ std::string LlmSkill::execute(json j) {
   worker = std::jthread(&LlmSkill::start, this, message);
   return "";
 }
+
 void LlmSkill::start(std::string message) {
   try {
+    bool done = false;
     Curl curlLlm(Config::instance().get("OLLAMA_URL") + "/api/chat");
     std::string headers = "Content-Type: application/json";
-    json jsonData = {{"model", Config::instance().get("LLM_MODEL")},
-                     {"stream", true},
-                     {"keep_alive", -1},
-                     {"messages", json::array({})}};
-    jsonData["messages"].push_back(
-        {{"role", "user"}, {"content", message.c_str()}});
+    LLMMessage userMessage = {"user", message};
+    context.messages.push_back(std::move(userMessage));
+    LLMTool tool;
+    tool.function.name = "get_aboba";
+    tool.function.description =
+        "Пользователь просит получить абобу, абоба "
+        "предоставляется в виде строки, после получения ответь пользователю "
+        "что абоба получена, абоба получается исключительно один раз за сессию";
+    tool.function.parameters.properties = {
+        {"aboba",
+         {"string", "абоба, необходимо указывать если не сказано иное"}}};
+    context.tools.push_back(std::move(tool));
+
     curlLlm.addHeaders(headers);
-    curlLlm.post(jsonData, [&](const char *chunk, size_t len) -> size_t {
-      std::string sb;
-      sb.append(chunk, len);
-      size_t pos;
-      while ((pos = sb.find('\n')) != std::string::npos) {
-        std::string line = sb.substr(0, pos);
-        sb.erase(0, pos + 1);
-        if (line.empty())
-          continue;
-        json j;
-        try {
-          j = json::parse(line);
-        } catch (const std::exception &e) {
-          continue;
+
+    LLMMessage agentMessage = {"assistant", ""};
+    int toolCalls = 0;
+    while (!done) {
+      bool isToolCall = false;
+      json jsonData = context;
+      std::cout << jsonData.dump(2) << "\n\n";
+      LLMMessage tool;
+
+      curlLlm.post(jsonData, [&](const char *chunk, size_t len) -> size_t {
+        std::string sb;
+        stream.full.clear();
+        sb.append(chunk, len);
+        size_t pos;
+
+        while ((pos = sb.find('\n')) != std::string::npos) {
+          std::string line = sb.substr(0, pos);
+          sb.erase(0, pos + 1);
+
+          if (line.empty())
+            continue;
+          json j;
+
+          try {
+            j = json::parse(line);
+          } catch (const std::exception &e) {
+            continue;
+          }
+
+          if (!j.contains("message"))
+            continue;
+
+          if (j["message"].contains("tool_calls")) {
+            ++toolCalls;
+            isToolCall = true;
+
+            std::cout << j["message"]["tool_calls"] << "\n\n";
+            agentMessage.tool_calls = j["message"]["tool_calls"];
+            tool = ToolChoser(j["message"]["tool_calls"])[0];
+
+            json toolJson = tool;
+            std::cout << toolJson.dump(2) << "\n\n";
+          }
+          std::string token = j["message"].value("content", "");
+          std::cout << token << std::flush;
+          stream.full.append(token);
+          agentMessage.content.append(token);
+          if (stopFlag)
+            return 0;
         }
-        if (!j.contains("message"))
-          continue;
-        std::string token = j["message"].value("content", "");
-        std::cout << token << std::flush;
-        stream.full.append(token);
-        if (stopFlag)
-          return 0;
+        return len;
+      }); // curlPost end
+
+      if ((!isToolCall || toolCalls >= 2)) {
+        done = true;
       }
-      return len;
-    });
+      std::cout << "\ndone: " << done << " toolCalls: " << toolCalls << "\n\n";
+
+      context.messages.push_back(std::move(agentMessage));
+      context.messages.push_back(tool);
+    }
+
+    // std::cout << stream.full << "\n\n";
+
     busy = false;
   } catch (std::exception &e) {
     std::cout << "Ошибка LLM: " << e.what() << "\n\n";
     busy = false;
   }
+}
+std::vector<LLMMessage> LlmSkill::ToolChoser(json tools) {
+  std::vector<LLMMessage> msgTools;
+  for (const auto &tool : tools) {
+    LLMMessage msg;
+    if (tool["function"]["name"] == "get_aboba") {
+      msg.role = "tool";
+      msg.content = "Полученна абоба " +
+                    tool["function"]["arguments"]["aboba"].get<std::string>();
+      msg.tool_call_id = tool["id"].get<std::string>();
+    }
+    msgTools.push_back(msg);
+  }
+  return msgTools;
 }

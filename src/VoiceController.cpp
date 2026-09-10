@@ -143,7 +143,7 @@ void VoiceController::listener() {
       if (speech != "" && !llm->running())
         std::cout << speech << " " << status << "\n";
 
-      if (ctre::search<"(раиса|рая|раечка)">(speech) && triggered == 0) {
+      if (ctre::search<"(раиса|раечка)">(speech) && triggered == 0) {
         mpvSetVolume(g_volume / 2);
         std::cout << "g_volume: " << (int)g_volume << "\n\n";
         triggered = 1;

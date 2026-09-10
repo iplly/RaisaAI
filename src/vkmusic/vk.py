@@ -318,11 +318,12 @@ def cmd_mix(http, token, options=None):
     return {"ok": True, "tracks": tracks}
 
 
-def cmd_similar(http, token, audio_id, count=20):
+def cmd_similar(http, token, audio_id):
+    audio_id = audio_id[:audio_id.rfind('_')]
     res = api_call(
         http,
         "audio.getStreamMixAudios",
-        {"mix_id": audio_id, "count": count, "access_token": token},
+        {"mix_id": "track_mix", "entity_id": audio_id, "access_token": token},
     )
     if not res["ok"]:
         return res
@@ -579,9 +580,7 @@ def main():
                 opts = build_mix_options(vibes, recognitions, langs)
                 payload = cmd_mix(http, token, opts)
             elif args[0] == "similar":
-                count = int(args[2]) if len(args) > 2 else 20
-                count = max(0, min(count, 500))
-                payload = cmd_similar(http, token, args[1], count)
+                payload = cmd_similar(http, token, args[1])
             elif args[0] == "refresh":
                 try:
                     save_config(cfg)
