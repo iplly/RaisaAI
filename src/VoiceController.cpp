@@ -127,7 +127,7 @@ void VoiceController::listener() {
   AVPacket packet = {};
   std::vector<uint8_t> audioBuffer;
   audioBuffer.reserve(2000000);
-  LlmSkill *llm = g_skills.llmskill.get();
+  LLMSkill *llm = g_skills.llmskill.get();
   int ringIndex = -1;
 
   while (running) {
@@ -198,7 +198,7 @@ void VoiceController::TaskQueue::stop() {
 
 void VoiceController::processor() {
   using namespace std::chrono;
-  LlmSkill *llm = g_skills.llmskill.get();
+  LLMSkill *llm = g_skills.llmskill.get();
   while (running) {
     try {
       processing = false;

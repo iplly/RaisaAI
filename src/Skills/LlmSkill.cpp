@@ -1,6 +1,6 @@
 #include "../Skill.h"
+#include "Config.h"
 #include "control.h"
-#include "core/Config.h"
 #include <iostream>
 #include <string>
 

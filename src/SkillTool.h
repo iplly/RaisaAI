@@ -1,5 +1,7 @@
 #pragma once
-#include "core/Json.h"
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 json weatherTool();
 json ytmusicTool();

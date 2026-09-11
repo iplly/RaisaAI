@@ -1,4 +1,3 @@
-
 #pragma once
 #include "Config.h"
 #include "SkillTool.h"
@@ -13,11 +12,14 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <set>
 #include <string>
 #include <thread>
 #include <vector>
+
+using json = nlohmann::json;
 
 struct StreamBuffer {
   std::string part;
@@ -47,7 +49,7 @@ public:
   std::string start(std::string, bool);
 };
 
-class LlmSkill : public Skill {
+class LLMSkill : public Skill {
   StreamBuffer stream;
   LLMRequest context = {Config::instance().get("LLM_MODEL"), true, -1, {}, {}};
   void start(std::string);
@@ -58,6 +60,7 @@ public:
   std::string description() const override;
   std::string execute(json) override;
   void stop() override;
+  LLMSkill();
   bool running() const;
 };
 
@@ -136,7 +139,7 @@ struct Skills {
   std::unique_ptr<WeatherSkill> weather;
   // std::unique_ptr<YTMusicSkill> ytmusic;
   std::unique_ptr<VKMusicSkill> vkmusic;
-  std::unique_ptr<LlmSkill> llmskill;
+  std::unique_ptr<LLMSkill> llmskill;
   std::unique_ptr<TimerSkill> timerskill;
 };
 

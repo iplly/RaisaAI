@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
 extern std::atomic<pid_t> g_vkMpvPid;
