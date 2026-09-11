@@ -1,17 +1,14 @@
 #include "../Skill.h"
-#include "Config.h"
 #include "control.h"
-#include <algorithm>
+#include "core/Config.h"
 #include <iostream>
 #include <string>
-#include <utility>
-#include <vector>
 
-std::string LlmSkill::name() const { return "LlmSkill"; }
-std::string LlmSkill::description() const { return ""; }
-bool LlmSkill::running() const { return busy.load(); }
-void LlmSkill::stop() { stopFlag.store(true); }
-std::string LlmSkill::execute(json j) {
+std::string LLMSkill::name() const { return "LlmSkill"; }
+std::string LLMSkill::description() const { return ""; }
+bool LLMSkill::running() const { return busy.load(); }
+void LLMSkill::stop() { stopFlag.store(true); }
+std::string LLMSkill::execute(json j) {
   std::string message = j["message"];
   std::cout << "message: " << message << "\n\n";
   if (busy)
@@ -20,27 +17,30 @@ std::string LlmSkill::execute(json j) {
     worker.join();
   busy = true;
   stopFlag = false;
-  worker = std::jthread(&LlmSkill::start, this, message);
+  worker = std::jthread(&LLMSkill::start, this, message);
   return "";
 }
 
-void LlmSkill::start(std::string message) {
+LLMSkill::LLMSkill() {
+  LLMTool tool;
+  tool.function.name = "get_aboba";
+  tool.function.description =
+      "Пользователь просит получить абобу, абоба "
+      "предоставляется в виде строки, после получения ответь пользователю "
+      "что абоба получена, абоба получается исключительно один раз за сессию";
+  tool.function.parameters.properties = {
+      {"aboba",
+       {"string", "абоба, необходимо указывать если не сказано иное"}}};
+  context.tools.push_back(std::move(tool));
+}
+
+void LLMSkill::start(std::string message) {
   try {
     bool done = false;
     Curl curlLlm(Config::instance().get("OLLAMA_URL") + "/api/chat");
     std::string headers = "Content-Type: application/json";
     LLMMessage userMessage = {"user", message};
     context.messages.push_back(std::move(userMessage));
-    LLMTool tool;
-    tool.function.name = "get_aboba";
-    tool.function.description =
-        "Пользователь просит получить абобу, абоба "
-        "предоставляется в виде строки, после получения ответь пользователю "
-        "что абоба получена, абоба получается исключительно один раз за сессию";
-    tool.function.parameters.properties = {
-        {"aboba",
-         {"string", "абоба, необходимо указывать если не сказано иное"}}};
-    context.tools.push_back(std::move(tool));
 
     curlLlm.addHeaders(headers);
 
@@ -52,8 +52,8 @@ void LlmSkill::start(std::string message) {
       std::cout << jsonData.dump(2) << "\n\n";
       LLMMessage tool;
 
+      std::string sb;
       curlLlm.post(jsonData, [&](const char *chunk, size_t len) -> size_t {
-        std::string sb;
         stream.full.clear();
         sb.append(chunk, len);
         size_t pos;
@@ -113,7 +113,7 @@ void LlmSkill::start(std::string message) {
     busy = false;
   }
 }
-std::vector<LLMMessage> LlmSkill::ToolChoser(json tools) {
+std::vector<LLMMessage> LLMSkill::ToolChoser(json tools) {
   std::vector<LLMMessage> msgTools;
   for (const auto &tool : tools) {
     LLMMessage msg;
