@@ -1,0 +1,26 @@
+#pragma once
+#include "libavformat/avformat.h"
+#include <libavcodec/packet.h>
+#include <libavformat/avformat.h>
+#include <libavutil/dict.h>
+#include <libavutil/error.h>
+#include <string>
+#include <vector>
+
+class AudioController {
+  AVFormatContext *fmtCtx = nullptr;
+  int audioStreamIndex = -1;
+
+public:
+  AudioController(std::string sample_rate, std::string channels,
+                  std::string appName);
+  bool read(AVPacket &pkt);
+  void saveWav(const std::string &path, const std::vector<uint8_t> &pcm,
+               uint32_t sampleRate = 48000, uint16_t channels = 1,
+               uint16_t bits = 16);
+  AudioController(AudioController const &) = delete;
+  AudioController &operator=(AudioController const &) = delete;
+  AudioController(AudioController &&) = delete;
+  AudioController &operator=(AudioController &&) = delete;
+  ~AudioController();
+};

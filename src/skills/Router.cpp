@@ -1,0 +1,54 @@
+#include "skills/Router.h"
+#include "core/Text.h"
+#include "llm/OllamaClient.h"
+#include "skills/Registry.h"
+#include <exception>
+#include <iostream>
+#include <nlohmann/json.hpp>
+#include <string>
+
+using json = nlohmann::json;
+
+json qwen1_7Data =
+    "    {\"model\":\"\",\"keep_alive\":-1,\"messages\":[{\"role\": "
+    "\"system\", \"content\":\"Ты — роутер команд голосового ассистента Raisa. "
+    "Просьба про музыку (включи, поставь, вруби, послушай, песня, трек, "
+    "исполнитель, группа, альбом, микс, жанр) → инструмент VKMusicSkill. В "
+    "track пиши ТОЛЬКО название, выбросив служебные слова в начале       "
+    "фразы: включи, поставь, вруби, песню, трек, музыку и т.п. Пример: «включи "
+    "песню Кино группа крови» → VKMusicSkill, track=\\\"Кино группа"
+    "крови\\\". Про погоду или температуру → WeatherSkill.\"}],\"think\":false,\"tools\":[],\"tool_choice\":\"required\",\"stream\":false}"_json;
+
+json SkillChoser(std::string message) {
+  std::string answer;
+  std::string result;
+  Ollama ollama;
+  try {
+    json jsonData = qwen1_7Data;
+    for (const auto &r : g_registry)
+      jsonData["tools"].push_back(r.tool());
+    jsonData["messages"].push_back(
+        {{"role", "user"}, {"content", message.c_str()}});
+
+    json j = ollama.chat(jsonData)["message"]["tool_calls"];
+
+    return (j.empty()) ? json(nullptr) : j[0];
+  } catch (const std::exception &e) {
+    std::cout << "Ошибка выбора инструмента " << e.what() << "\n\n";
+    return {};
+  }
+}
+
+void dispatch(const std::string &name, json &args, const std::string &full) {
+  for (const auto &r : g_registry) {
+    if (r.name != name)
+      continue;
+    std::string low = toLowerUtf8(full);
+    for (auto &w : r.keywords) {
+      if (low.find(w) != std::string::npos)
+        args["detals"] = "full";
+      r.execute(args);
+      return;
+    }
+  }
+}

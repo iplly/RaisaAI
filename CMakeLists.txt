@@ -46,9 +46,29 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Флаги для каждого типа сборки
 set(CMAKE_CXX_FLAGS_DEBUG
-    "-g -O0 -Wall -Wextra" CACHE STRING "Флаги Debug" FORCE)
+    "-g -O0" CACHE STRING "Флаги Debug" FORCE)
 set(CMAKE_CXX_FLAGS_RELEASE
     "-O3 -DNDEBUG" CACHE STRING "Флаги Release" FORCE)
+
+# ============================ Качество кода ============================
+
+# Строгие предупреждения во ВСЕХ типах сборки (не только Debug).
+option(RAISA_ENABLE_WARNINGS "Строгие предупреждения во всех типах сборки" ON)
+option(RAISA_WARNINGS_AS_ERRORS "Трактовать предупреждения как ошибки" OFF)
+if(RAISA_ENABLE_WARNINGS)
+    add_compile_options(-Wall -Wextra)
+    if(RAISA_WARNINGS_AS_ERRORS)
+        add_compile_options(-Werror)
+    endif()
+endif()
+
+# Рантайм-санитайзеры (address | undefined | thread; пусто — выключено).
+# Пример: cmake -DRAISA_SANITIZE=address ..
+set(RAISA_SANITIZE "" CACHE STRING "Санитайзер: address, undefined, thread (пусто = выкл)")
+if(RAISA_SANITIZE)
+    add_compile_options(-fsanitize=${RAISA_SANITIZE} -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=${RAISA_SANITIZE})
+endif()
 
 find_package(PkgConfig REQUIRED)
 
@@ -72,9 +92,8 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
 # libcurl
 pkg_check_modules(CURL REQUIRED IMPORTED_TARGET libcurl)
 
-# Автопоиск исходников (main.cpp в корне + всё в src/)
+# Автопоиск исходников (все .cpp в src/, включая подкаталоги)
 file(GLOB_RECURSE RAISA_SOURCES CONFIGURE_DEPENDS
-    main.cpp
     src/*.cpp
 )
 

@@ -1,6 +1,9 @@
 # Сборка
 build/
 build-release/
+build-asan/
+build-ubsan/
+build-tsan/
 CMakeCache.txt
 CMakeFiles/
 __pycache__/
@@ -26,6 +29,9 @@ TODO.md
 whisper.cpp/
 vk-ext/
 llama.cpp-omni/
+.clang-tidy
+.clangd
+CMakePresets.json
 
 # Модели
 Models/
