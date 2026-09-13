@@ -1,10 +1,10 @@
-#include "core/Config.h"
 #include "llm/OllamaClient.h"
+#include "core/Config.h"
 #include "net/Curl.h"
 #include <iostream>
 #include <string>
 
-json Ollama::chat(json body) {
+json Ollama::chat(const json &body) {
   Curl curlLlm(Config::instance().get("OLLAMA_URL") + "/api/chat");
   std::string headers = "Content-Type: application/json";
   std::string result;
@@ -18,7 +18,6 @@ json Ollama::chat(json body) {
   if (res != CURLE_OK)
     std::cout << "curl: " << curl_easy_strerror(res) << "\n";
 
-  std::cout << "Result: " << result << "\n\n";
   return json::parse(result);
 }
 //

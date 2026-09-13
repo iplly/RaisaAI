@@ -92,6 +92,9 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
 # libcurl
 pkg_check_modules(CURL REQUIRED IMPORTED_TARGET libcurl)
 
+# spdlog — логгер
+find_package(spdlog REQUIRED)
+
 # Автопоиск исходников (все .cpp в src/, включая подкаталоги)
 file(GLOB_RECURSE RAISA_SOURCES CONFIGURE_DEPENDS
     src/*.cpp
@@ -124,5 +127,6 @@ target_compile_options(Raisa PRIVATE -include ${FFMPEG_C_WRAPPER})
 target_link_libraries(Raisa
     PkgConfig::FFMPEG
     PkgConfig::CURL
+    spdlog::spdlog
     ${VOSK_LIBRARY}
 )

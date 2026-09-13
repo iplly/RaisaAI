@@ -65,7 +65,7 @@ std::string TimerSkill::execute(json j) {
         throw std::runtime_error("Бля времени нету");
       auto tp = strToTime(time);
       auto zt = std::chrono::zoned_time{std::chrono::current_zone(), tp};
-      std::cout << std::format("День:{:%d %H:%M}", zt) << std::endl;
+      std::cout << std::format("День:{:%d %H:%M}", zt) << "\n\n";
       add(
           j.value("name", "будильник общий"), nextAlarm(strToTime(time)),
           [] {

@@ -85,7 +85,6 @@ int wordsToNumber(std::string w) {
       }
     }
   }
-  std::cout << "total: " << total << "\n\n";
   return total;
 }
 

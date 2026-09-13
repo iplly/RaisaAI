@@ -11,7 +11,7 @@ static size_t BodyRead(void *data, size_t size, size_t nmemb, void *userdata) {
   return (*cb)(static_cast<const char *>(data), size * nmemb);
 }
 
-Curl::Curl(std::string url) {
+Curl::Curl(const std::string &url) {
   this->url = url;
   curl = curl_easy_init();
   if (!curl) {
@@ -37,7 +37,7 @@ CURLcode Curl::post(const json &body, const BodyCallback &onBody) {
 
   return curl_easy_perform(curl);
 }
-CURLcode Curl::get(std::string param, const BodyCallback &onBody) {
+CURLcode Curl::get(const std::string &param, const BodyCallback &onBody) {
   curl_easy_setopt(curl, CURLOPT_POST, 0L);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &onBody);
   curl_easy_setopt(curl, CURLOPT_URL, (url + param).c_str());

@@ -10,7 +10,7 @@ struct TaskQueue {
   std::condition_variable cv;
   std::deque<std::string> tasks;
   std::atomic<bool> stopped{false};
-  void push(std::string);
+  void push(const std::string &);
   std::string pop();
   void stop();
 };

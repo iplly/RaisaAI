@@ -1,7 +1,7 @@
 #include "daemon/TaskQueue.h"
 #include <mutex>
 
-void TaskQueue::push(std::string s) {
+void TaskQueue::push(const std::string &s) {
   std::lock_guard<std::mutex> lg(mtx);
   tasks.push_back(s);
   cv.notify_one();

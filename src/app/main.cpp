@@ -14,6 +14,7 @@
 #include <libavcodec/packet.h>
 #include <libavutil/dict.h>
 #include <libavutil/error.h>
+#include <spdlog/spdlog.h>
 
 using json = nlohmann::json;
 
@@ -34,14 +35,14 @@ int main() {
     if (in >> volume)
       volume = std::clamp(volume, 0, 100);
     g_volume = static_cast<uint8_t>(volume);
-    std::cout << "g_volume " << (int)g_volume << "\n\n";
+    spdlog::info("g_volume: {}", g_volume.load());
     VoiceController voice_controller;
     skill_init();
     debugInit(voice_controller);
     std::jthread(debugConsole).detach();
     voice_controller.Run();
   } catch (std::exception &e) {
-    std::cout << "Непонятная ошибка " << e.what() << "\n\n";
+    spdlog::critical("Непонятная ошибка: ", e.what());
     return 1;
   }
   return 0;

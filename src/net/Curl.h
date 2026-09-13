@@ -14,10 +14,10 @@ class Curl {
 
 public:
   using BodyCallback = std::function<std::size_t(const char *, std::size_t)>;
-  Curl(std::string url);
+  Curl(const std::string &url);
   void addHeaders(const std::string &headers);
   CURLcode post(const json &body, const BodyCallback &onBody);
-  CURLcode get(std::string param, const BodyCallback &onBody);
+  CURLcode get(const std::string &param, const BodyCallback &onBody);
   Curl(Curl const &) = delete;
   Curl &operator=(Curl const &) = delete;
   Curl(Curl &&) = delete;

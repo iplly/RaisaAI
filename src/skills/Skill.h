@@ -34,6 +34,7 @@ protected:
 public:
   virtual std::string name() const = 0;
   virtual std::string description() const = 0;
+  const std::function<json()> tool;
   virtual std::string execute(json) = 0;
   virtual void stop() {};
 
@@ -44,6 +45,7 @@ class WeatherSkill : public Skill {
 public:
   std::string name() const override;
   std::string description() const override;
+  const std::function<json()> tool = weatherTool;
   std::string execute(json) override;
   std::string start(std::string, bool);
 };
@@ -93,6 +95,7 @@ public:
   friend void debugInit(VoiceController &vc);
   std::string name() const override;
   std::string description() const override;
+  const std::function<json()> tool = vkmusicTool;
   std::string execute(json) override;
   void stop() override;
   void next();
@@ -126,6 +129,7 @@ public:
   friend void debugInit(VoiceController &vc);
   std::string name() const override;
   std::string description() const override;
+  const std::function<json()> tool = timerTool;
   std::string execute(json) override;
   void start();
   void add(std::string, TimePoint, std::function<void()>, bool period = false,

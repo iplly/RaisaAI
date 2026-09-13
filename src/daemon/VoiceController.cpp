@@ -13,11 +13,29 @@
 #include <ctre.hpp>
 #include <ctre/wrapper.hpp>
 #include <exception>
-#include <iostream>
 #include <memory>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <thread>
+#include <unistd.h>
 #include <vector>
+
+// static int rows() {
+//   winsize ws;
+//   ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
+//   return ws.ws_row;
+// }
+//
+// static void printBottom(const std::string &text) {
+//   // сохранить позицию
+//   std::cout << "\033[s";
+//   // перейти на последнюю строку
+//   std::cout << "\033[" << rows() << ";1H";
+//   // очистить строку и напечатать
+//   std::cout << "\033[K" << text << std::flush;
+//   // вернуть курсор
+//   std::cout << "\033[u" << std::flush;
+// }
 
 bool VoiceController::quickCommand(const std::string &full) {
   if (ctre::search<"(стоп|остановись)">(full)) {
@@ -31,10 +49,8 @@ bool VoiceController::quickCommand(const std::string &full) {
       g_skills.vkmusic->stop();
     return 1;
 
-  } else if (ctre::search<"(пауз)">(full)) {
-    mpvTogglePause();
-    return 1;
-  } else if (ctre::search<"(дальше|включ|продолжи)">(full) && g_pause) {
+  } else if (ctre::search<"(пауз)">(full) ||
+             (ctre::search<"(дальше|включ|продолжи)">(full) && g_pause)) {
     mpvTogglePause();
     return 1;
   } else if (ctre::search<"(тише)">(full)) {
@@ -47,7 +63,7 @@ bool VoiceController::quickCommand(const std::string &full) {
     } else
       setVolume(std::max(0, g_volume - 15));
     mpvSetVolume(g_volume);
-    std::cout << "g_volume: " << (int)g_volume << "\n\n";
+    spdlog::info("g_volume: {}", (int)g_volume);
     return 1;
 
   } else if (ctre::search<"(громче)">(full)) {
@@ -57,7 +73,7 @@ bool VoiceController::quickCommand(const std::string &full) {
     } else
       setVolume(std::min(100, g_volume + 15));
     mpvSetVolume(g_volume);
-    std::cout << "g_volume: " << (int)g_volume << "\n\n";
+    spdlog::info("g_volume: {}", (int)g_volume);
     return 1;
 
   } else if (ctre::search<"(громкость|звук на)">(full)) {
@@ -69,7 +85,7 @@ bool VoiceController::quickCommand(const std::string &full) {
     else
       setVolume(volume);
     mpvSetVolume(g_volume);
-    std::cout << "g_volume: " << (int)g_volume << "\n\n";
+    spdlog::info("g_volume: {}", (int)g_volume);
     return 1;
 
   } else if (ctre::search<"(следущ|пропусти|дальше)">(full)) {
@@ -124,7 +140,6 @@ void VoiceController::listener() {
   AVPacket packet = {};
   std::vector<uint8_t> audioBuffer;
   audioBuffer.reserve(2000000);
-  LLMSkill *llm = g_skills.llmskill.get();
   int ringIndex = -1;
 
   while (running) {
@@ -137,12 +152,12 @@ void VoiceController::listener() {
 
       std::string speech = vosk.getPartial();
 
-      if (speech != "" && !llm->running())
-        std::cout << speech << " " << status << "\n";
+      // if (speech != "" && !llm->running())
+      //   printBottom(speech + " " + std::to_string(status));
 
       if (ctre::search<"(раиса|раечка)">(speech) && triggered == 0) {
         mpvSetVolume(g_volume / 2);
-        std::cout << "g_volume: " << (int)g_volume << "\n\n";
+        spdlog::info("g_volume: ", (int)g_volume);
         triggered = 1;
         vosk.reset();
         continue;
@@ -167,7 +182,7 @@ void VoiceController::listener() {
         av_packet_unref(&packet);
       }
     } catch (std::exception &e) {
-      std::cout << "Неизвестная ошибка " << e.what() << "\n\n";
+      spdlog::error("Неизвестная ошибка: {}", e.what());
       continue;
     }
   }
@@ -188,23 +203,22 @@ void VoiceController::processor() {
       try {
         full = fullWhisper(filePath);
       } catch (const std::exception &e) {
-        std::cout << "Ошибка Whisper: " << e.what() << "\n\n";
+        spdlog::error("Ошибка Whisper: {}", e.what());
       }
-      std::cout << "user message: " << full << "\n\n";
+      spdlog::info("user message: {}", full);
 
       if (!handleCommand(full)) {
 
-        std::cout << "Обрабатывю запрос" << "\n ";
+        spdlog::info("Обрабатывю запрос");
         json tool = SkillChoser(full);
         if (skip.exchange(false)) {
-          std::cout << "Задача прервана" << "\n\n";
+          spdlog::warn("Задача прервана");
           continue;
         }
-        std::cout << "tool: " << tool << "\n\n";
         if (tool.is_null()) {
           if (!llm->running()) {
             json message = {{"message", full}};
-            std::cout << llm->execute(message);
+            llm->execute(message);
           }
           continue;
         }
@@ -225,9 +239,9 @@ void VoiceController::processor() {
       }
       auto end = steady_clock::now();
       auto diff = duration_cast<seconds>(end - start).count();
-      std::cout << "Время выполнения: " << diff << "s\n\n";
+      spdlog::info("Время выполнения: {}", diff);
     } catch (const std::exception &e) {
-      std::cout << "Ошибка обработчика: " << e.what() << "\n\n";
+      spdlog::info("Ошибка обработчика: {}", e.what());
     }
   }
 }

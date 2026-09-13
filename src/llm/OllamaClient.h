@@ -5,6 +5,6 @@ using json = nlohmann::json;
 
 class Ollama {
 public:
-  json chat(json body);
-  bool chatStream(json body, std::function<bool(const json &)>);
+  json chat(const json &body);
+  bool chatStream(const json &body, std::function<bool(const json &)>);
 };

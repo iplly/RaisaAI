@@ -6,6 +6,7 @@
 #include "skills/model/LmTypes.h"
 #include <exception>
 #include <iostream>
+#include <spdlog/spdlog.h>
 #include <string>
 
 std::string LLMSkill::name() const { return "LlmSkill"; }
@@ -14,7 +15,8 @@ bool LLMSkill::running() const { return busy.load(); }
 void LLMSkill::stop() { stopFlag.store(true); }
 std::string LLMSkill::execute(json j) {
   std::string message = j["message"];
-  std::cout << "message: " << message << "\n\n";
+  spdlog::info("message: {}", message);
+
   if (busy)
     return "Ждите";
   if (worker.joinable())
@@ -66,7 +68,8 @@ LLMSkill::LLMSkill() {
         "- Читать файлы: cat, less, head, tail, grep, rg, find, ls, tree, wc, "
         "file, stat."
         "- Искать: grep, rg, ag, find."
-        "- Смотреть систему: pwd, whoami, id, uname, df, du, free, ps, top "
+        "- Смотреть систему: pwd, whoami, id, uname, date, df, du, free, ps, "
+        "top "
         "(только с -b), lscpu, lsblk."
         "- Работать с git: git status, git log, git diff, git show, git "
         "branch, git add, git commit, git stash."
@@ -114,6 +117,7 @@ LLMSkill::LLMSkill() {
         "объясни пользователю, что нужно сделать вручную."}});
   context.tools.push_back(std::move(tool1));
   context.tools.push_back(std::move(tool2));
+  context.tools.push_back(std::move(tool3));
 }
 
 void LLMSkill::start(std::string message) {
@@ -131,7 +135,7 @@ void LLMSkill::start(std::string message) {
     while (!done) {
       bool isToolCall = false;
       json jsonData = context;
-      std::cout << jsonData.dump(2) << "\n\n";
+      // std::cout << jsonData.dump(2) << "\n\n";
       LLMMessage tool;
 
       std::string sb;
@@ -166,7 +170,9 @@ void LLMSkill::start(std::string message) {
             tool = ToolChoser(j["message"]["tool_calls"])[0];
 
             json toolJson = tool;
-            std::cout << toolJson.dump(2) << "\n\n";
+            spdlog::info("toolJson start");
+            std::cout << toolJson.dump(2) << "\n";
+            spdlog::info("toolJson end");
           }
           std::string token = j["message"].value("content", "");
           std::cout << token << std::flush;
@@ -178,10 +184,10 @@ void LLMSkill::start(std::string message) {
         return len;
       }); // curlPost end
 
-      if ((!isToolCall || toolCalls > 3)) {
+      if ((!isToolCall || toolCalls > 15)) {
         done = true;
       }
-      std::cout << "\ndone: " << done << " toolCalls: " << toolCalls << "\n\n";
+      spdlog::info("\ndone: {} toolCalls: {}", done, toolCalls);
 
       context.messages.push_back(std::move(agentMessage));
       context.messages.push_back(tool);
@@ -191,7 +197,7 @@ void LLMSkill::start(std::string message) {
 
     busy = false;
   } catch (std::exception &e) {
-    std::cout << "Ошибка LLM: " << e.what() << "\n\n";
+    spdlog::error("Ошибка LLM: {}", e.what());
     busy = false;
   }
 }
@@ -217,7 +223,7 @@ std::vector<LLMMessage> LLMSkill::ToolChoser(const json &tools) {
         msg.content = exec(arguments["command"].get<std::string>());
       }
     } catch (const std::exception &e) {
-      std::cout << "Ошибка вызовы инструмента агентом: " << e.what() << "\n\n";
+      spdlog::error("Ошибка вызова инструмента агентом: {}", e.what());
       msg.content = "Ошибка инструмента";
     }
     msgTools.push_back(msg);

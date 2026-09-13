@@ -13,23 +13,26 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELS_DIR="$ROOT/Models"
 VOSK_MODEL_DIR="$MODELS_DIR/vosk-model-small"
-VOSK_URL="https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip"
+# Зеркала vosk-model-small-ru-0.22.zip: официальное (alphacephei.com) качает
+# ~200 байт/c — почти всегда виснет. Первым идёт быстрое зеркало на HuggingFace
+# (rhasspy/vosk-models), официальное остаётся запасным.
+VOSK_URLS=(
+  "https://huggingface.co/rhasspy/vosk-models/resolve/main/ru/vosk-model-small-ru-0.22.zip"
+  "https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip"
+)
 # Временный файл/каталог для распаковки кладём рядом с модели (внутри проекта),
 # чтобы скрипт был переносим между пользователями/машинами.
 VOSK_ZIP="$MODELS_DIR/vosk-model-small-ru-0.22.zip"
 VOSK_TMP="$MODELS_DIR/.tmp-vosk"
 WHISPER_PORT=8000
-VK_COOKIE_PORT=8002
 # PID и логи — в каталог времени выполнения (переносимо для любого пользователя)
 RUN_DIR="${XDG_RUNTIME_DIR:-/tmp}/raisa"
 PIDFILE_DIR="$RUN_DIR"
 LOG_DIR="$RUN_DIR"
 
 # --- Репозитории внешних компонентов (впишите ваши ссылки) ---
-# vk.py: Python-мост к VK Music API
+# vk.py: Python-мост к VK Music API (внутри каталога src/vkmusic, в этом репозитории)
 VK_PY_REPO="${VK_PY_REPO:-}"
-# vk-ext: репозиторий (содержит vk_cookie_server.py; расширение ставится в браузер отдельно)
-VK_EXT_REPO="https://github.com/iplly/vk-ext"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -68,7 +71,7 @@ echo ""
 
 # --- 1. Базовые зависимости ---
 echo "1. Проверка базовых зависимостей..."
-for cmd in python3 curl wget unzip tar; do
+for cmd in python3 curl unzip; do
   if command -v "$cmd" >/dev/null 2>&1; then
     ok "$cmd: $(command -v "$cmd")"
   else
@@ -114,43 +117,43 @@ if [ -d "$VOSK_MODEL_DIR/am" ]; then
 else
   warn "vosk-model-small не найдена в $VOSK_MODEL_DIR"
   mkdir -p "$MODELS_DIR"
-  echo "  Скачиваю vosk-model-small-ru-0.22 (46 МБ)..."
-  echo "  (при медленном соединении загрузка прервётся сама — докачается при повторном запуске)"
-  VOSK_EXPECTED=46236750 # известный Content-Length (байт)
-  # Детерминированный лимит: одна попытка, жёсткий таймаут 90 сек,
-  # при обрыве -C - докачает при следующем запуске. Не зависает.
-  if timeout --foreground 90 curl -fL -C - \
-    --connect-timeout 20 \
-    -o "$VOSK_ZIP" "$VOSK_URL" 2>/dev/null; then
-    VOSK_ACTUAL=$(stat -c%s "$VOSK_ZIP" 2>/dev/null || echo 0)
-    if [ "$VOSK_ACTUAL" -lt "$VOSK_EXPECTED" ]; then
-      fail "Модель скачалась не полностью ($VOSK_ACTUAL из $VOSK_EXPECTED байт)"
-      rm -f "$VOSK_ZIP"
-      echo "  Сеть до alphacephei.com медленная. Повторите ./setup.sh позже (загрузка докачается)."
-      echo "  Либо скачайте вручную и распакуйте в $VOSK_MODEL_DIR:"
-      echo "    wget $VOSK_URL"
-      echo "    unzip vosk-model-small-ru-0.22.zip"
-      echo "    mv vosk-model-small-ru-0.22 $VOSK_MODEL_DIR"
-    else
-      unzip -qo "$VOSK_ZIP" -d "$VOSK_TMP"
-      if [ -d "$VOSK_TMP/vosk-model-small-ru-0.22" ]; then
-        rm -rf "$VOSK_MODEL_DIR"
-        mv "$VOSK_TMP/vosk-model-small-ru-0.22" "$VOSK_MODEL_DIR"
-        rm -rf "$VOSK_TMP"
-        rm -f "$VOSK_ZIP"
-        ok "vosk-model-small установлена"
-      else
-        rm -rf "$VOSK_TMP"
-        fail "Не удалось распаковать модель (ожидалась папка vosk-model-small-ru-0.22)"
+  VOSK_EXPECTED=46236750 # известный размер (байт)
+  VOSK_OK=false
+  for src in "${VOSK_URLS[@]}"; do
+    echo "  Скачиваю vosk-model-small-ru-0.22 (46 МБ) с ${src%%://*}..."
+    rm -f "$VOSK_ZIP"
+    # Однократная попытка на зеркало, лимит 300 c. Официальное зеркало
+    # медленное — при неудаче сразу переходим к следующему.
+    if timeout --foreground 300 curl -fL \
+      --connect-timeout 20 \
+      --max-time 280 \
+      -o "$VOSK_ZIP" "$src" 2>/dev/null; then
+      VOSK_ACTUAL=$(stat -c%s "$VOSK_ZIP" 2>/dev/null || echo 0)
+      if [ "$VOSK_ACTUAL" -ge "$VOSK_EXPECTED" ]; then
+        VOSK_OK=true
+        break
       fi
+      rm -f "$VOSK_ZIP"
+    fi
+  done
+  if [ "$VOSK_OK" = true ]; then
+    unzip -qo "$VOSK_ZIP" -d "$VOSK_TMP"
+    if [ -d "$VOSK_TMP/vosk-model-small-ru-0.22" ]; then
+      rm -rf "$VOSK_MODEL_DIR"
+      mv "$VOSK_TMP/vosk-model-small-ru-0.22" "$VOSK_MODEL_DIR"
+      rm -rf "$VOSK_TMP"
+      rm -f "$VOSK_ZIP"
+      ok "vosk-model-small установлена"
+    else
+      rm -rf "$VOSK_TMP"
+      fail "Не удалось распаковать модель (ожидалась папка vosk-model-small-ru-0.22)"
     fi
   else
-    fail "Не удалось скачать модель с $VOSK_URL"
-    echo "  Сеть до alphacephei.com медленная или недоступна. Повторите позже."
-    echo "  Либо скачайте вручную и распакуйте в $VOSK_MODEL_DIR:"
-    echo "    wget $VOSK_URL"
-    echo "    unzip vosk-model-small-ru-0.22.zip"
-    echo "    mv vosk-model-small-ru-0.22 $VOSK_MODEL_DIR"
+    fail "Не удалось скачать модель ни с одного зеркала:"
+    for src in "${VOSK_URLS[@]}"; do
+      echo "    $src"
+    done
+    echo "  Либо скачайте вручную и распакуйте в $VOSK_MODEL_DIR"
   fi
 fi
 echo ""
@@ -183,21 +186,7 @@ else
   fi
 fi
 
-echo "   vk-cookie-server (из vk-ext репозитория)..."
-if [ -n "$VK_EXT_REPO" ]; then
-  ensure_repo "$VK_EXT_REPO" "$ROOT/vk-ext"
-  if [ -f "$ROOT/vk-ext/vk_cookie_server.py" ]; then
-    ok "vk_cookie_server.py: доступен ($ROOT/vk-ext/vk_cookie_server.py)"
-  else
-    fail "vk_cookie_server.py не найден в $ROOT/vk-ext"
-  fi
-else
-  if [ -f "$ROOT/vk-ext/vk_cookie_server.py" ]; then
-    ok "vk_cookie_server.py: локально"
-  else
-    warn "vk_cookie_server.py не найден. Укажите VK_EXT_REPO в setup.sh"
-  fi
-fi
+echo "   vk-cookie-server не нужен: vk.py минтит свежую куку при каждом вызове"
 echo ""
 
 # --- 6. Whisper ---
@@ -233,7 +222,18 @@ if [ "$skip_whisper" = false ]; then
       fi
       echo "  Собираю whisper.cpp..."
       cd "$WHISPER_SRC"
-      cmake -B build -DCMAKE_BUILD_TYPE=Release >/dev/null 2>&1
+      # Vulkan: если есть заголовки/либа — включаем ускорение GGML_VULKAN=ON.
+      # Для сборки нужен не только рантайм, но и dev-пакет (vulkan-header + vulkan-loader).
+      VULKAN_CMAKE_ARGS=()
+      if pkg-config --exists vulkan 2>/dev/null; then
+        ok "Vulkan: найден (pkg-config), включаю GGML_VULKAN=ON"
+        VULKAN_CMAKE_ARGS=(-DGGML_VULKAN=ON)
+      else
+        warn "Vulkan не найден (нужен vulkan-header + vulkan-loader). Собираю без GPU-ускорения (CPU)."
+        warn "  Debian/Ubuntu: sudo apt install libvulkan-dev"
+        warn "  Arch:           sudo pacman -S vulkan-headers vulkan-icd-loader"
+      fi
+      cmake -B build -DCMAKE_BUILD_TYPE=Release "${VULKAN_CMAKE_ARGS[@]}" >/dev/null 2>&1
       cmake --build build -j"$(nproc)" --target whisper-server >/dev/null 2>&1
       cd "$ROOT"
       WHISPER_BIN="$WHISPER_SRC/build/bin/whisper-server"
@@ -305,36 +305,15 @@ else
   fi
 fi
 
-# --- 7b. VK Cookie Server ---
-echo "   vk-cookie-server (:$VK_COOKIE_PORT)..."
-if port_in_use "$VK_COOKIE_PORT"; then
-  ok "Порт $VK_COOKIE_PORT уже занят (vk-cookie-server работает)"
-else
-  if [ "$check_only" = true ]; then
-    warn "Порт $VK_COOKIE_PORT свободен (vk-cookie-server не запущен)"
-  else
-    if [ -f "$ROOT/vk-ext/vk_cookie_server.py" ]; then
-      nohup python3 "$ROOT/vk-ext/vk_cookie_server.py" \
-        --config "$ROOT/vk.conf" \
-        >"$LOG_DIR/raisa-vk-cookie.log" 2>&1 &
-      echo $! >"$PIDFILE_DIR/vk-cookie-server.pid"
-      sleep 1
-      if port_in_use "$VK_COOKIE_PORT"; then
-        ok "vk-cookie-server запущен (PID $(cat "$PIDFILE_DIR/vk-cookie-server.pid"))"
-      else
-        fail "vk-cookie-server не запустился (см. $LOG_DIR/raisa-vk-cookie.log)"
-      fi
-    else
-      fail "vk_cookie_server.py не найден"
-    fi
-  fi
-fi
-echo ""
+# --- 7b. VK Cookie Server — удалён: vk.py минтит свежую куку при каждом
+# вызове, отдельный сервис для обновления VK_COOKIE не нужен. ---
 
 # --- 8. vk.conf ---
 echo "8. Проверка vk.conf..."
 if [ -f "$ROOT/vk.conf" ]; then
   ok "vk.conf существует"
+  # Секретный файл: доступ только владельцу (600).
+  chmod 600 "$ROOT/vk.conf"
   if grep -q "^VK_ACCESS_TOKEN=" "$ROOT/vk.conf" && grep -q "^VK_COOKIE=" "$ROOT/vk.conf"; then
     ok "VK_ACCESS_TOKEN и VK_COOKIE присутствуют"
   else
@@ -347,8 +326,9 @@ VK_ACCESS_TOKEN=
 VK_COOKIE=
 EOF
   if [ -f "$ROOT/vk.conf" ]; then
+    chmod 600 "$ROOT/vk.conf"
     ok "vk.conf создан ($ROOT/vk.conf)"
-    warn "Заполните в нём VK_ACCESS_TOKEN и VK_COOKIE (см. vk-ext)."
+    warn "Заполните VK_ACCESS_TOKEN и VK_COOKIE вручную (куки из браузера: remixsid, p)."
   else
     fail "Не удалось создать vk.conf"
   fi

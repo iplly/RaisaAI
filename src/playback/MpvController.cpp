@@ -14,7 +14,7 @@
 std::atomic<pid_t> g_vkMpvPid{-1};
 std::atomic<bool> g_pause{false};
 
-static void smoothSetVolume(char target, pid_t pid) {
+static void smoothSetVolume(uint8_t target, pid_t pid) {
   std::lock_guard<std::mutex> lock(mtx);
   uint8_t current = g_actual;
   if (current == target)
@@ -29,11 +29,11 @@ static void smoothSetVolume(char target, pid_t pid) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
   }
 }
-void mpvSetVolume(char v, pid_t pid) {
+void mpvSetVolume(uint8_t v, pid_t pid) {
   std::thread([v, pid]() { smoothSetVolume(v, pid); }).detach();
 }
 
-void mpvSetVolume_(char v, pid_t pid) {
+void mpvSetVolume_(uint8_t v, pid_t pid) {
   if (g_vkMpvPid <= 0)
     return;
   if (kill(g_vkMpvPid, 0) != 0) {

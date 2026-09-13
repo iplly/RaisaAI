@@ -21,7 +21,6 @@ struct WeatherCurrentUnits {
   std::string wind_direction_10m;
   std::string wind_gusts_10m;
 
-  // Макрос ВНУТРИ – все поля перечисляем через запятую
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(WeatherCurrentUnits, time, interval,
                                  temperature_2m, relative_humidity_2m,
                                  apparent_temperature, is_day, precipitation,

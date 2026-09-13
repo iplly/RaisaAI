@@ -1,7 +1,7 @@
+#include "skills/SkillContext.h"
 #include "core/Config.h"
 #include "skills/Router.h"
 #include "skills/Skill.h"
-#include "skills/SkillContext.h"
 #include <memory>
 
 struct Skills g_skills;

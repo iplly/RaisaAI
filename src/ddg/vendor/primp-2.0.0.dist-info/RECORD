@@ -1,0 +1,10 @@
+primp-2.0.0.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+primp-2.0.0.dist-info/METADATA,sha256=1I77F8ut3wtKZl5DsBBXNmCSGaSbAylVG7sg0Mf4GGQ,3896
+primp-2.0.0.dist-info/RECORD,,
+primp-2.0.0.dist-info/WHEEL,sha256=PgBRCLcsqZXWSZAQuF0_nFWyGhobcxuRGOsBICm_4Kk,145
+primp-2.0.0.dist-info/sboms/primp-python.cyclonedx.json,sha256=o31rV9PMJAcjsIML0d70G6aQNkrxqJWGpG3F0y4OM3Q,279027
+primp/__init__.py,sha256=QuMaLtpy93bUMWEqxRFqn2YlmTWQZ2KgvKaxM7Tmfco,103
+primp/__init__.pyi,sha256=lXFVbeZDcxfUFX3sp41us17HYOkI0QgqI-u9YzBxJdw,28622
+primp/__pycache__/__init__.cpython-314.pyc,,
+primp/primp.abi3.so,sha256=7Eh_zBU1PoK90da63Hqnd5CdbJrw6Cn9Chm5Ztpj57Q,13903792
+primp/py.typed,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0

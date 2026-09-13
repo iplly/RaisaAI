@@ -1,8 +1,10 @@
 # RaisaAI
 
+![Raisa](assets/Illustration9.png)
+
 Голосовой ассистент на C++20: локальное распознавание речи (Vosk + Whisper),
 LLM через Ollama (диалог + роутер инструментов), скиллы: музыка VK, таймер,
-погода, произвольный диалог.
+погода, поиск в интернете (DuckDuckGo), произвольный диалог.
 
 ## Содержание
 
@@ -27,8 +29,9 @@ LLM через Ollama (диалог + роутер инструментов), с
 - FFmpeg dev: `libavdevice-dev libavformat-dev libavcodec-dev libavutil-dev libswresample-dev`
 - libcurl: `libcurl4-openssl-dev`
 - Vosk (см. [установка Vosk](#установка-vosk))
-- Заголовочные библиотеки: `ctre.hpp` (compile-time regex) и `nlohmann/json.hpp`
-  (`pacman -S compile-time-regular-expressions nlohmann-json`)
+- Заголовочные библиотеки: `ctre.hpp` (compile-time regex) и `nlohmann/json.hpp` —
+  в большинстве дистрибутивов есть готовые пакеты, либо положите заголовки вручную
+  (`/usr/include` или через `CMakeLists.txt`)
 - необязательно (ускоряют сборку): `ccache`, `ninja`, `ld.lld`
 
 **Запуск:**
@@ -54,13 +57,15 @@ make -j$(nproc)
 
 ## Установка Vosk
 
-(Arch Linux)
+Пакеты Vosk есть в репозиториях большинства дистрибутивов:
 
-```bash
-pacman -S vosk-api
-```
+- Arch Linux: `pacman -S vosk-api`
+- Debian/Ubuntu: `sudo apt install libvosk-dev`
 
-Устанавливает библиотеку `libvosk` и заголовок `vosk_api.h`.
+Устанавливают библиотеку `libvosk` и заголовок `vosk_api.h`.
+
+Если готового пакета нет — соберите из исходников:
+[alphacephei.com/vosk](https://alphacephei.com/vosk/) и установите в `/usr/local`.
 
 ## Конфигурация
 
@@ -93,18 +98,15 @@ ROUTER_MODEL=gemma4:e4b
 ## setup.sh
 
 Установщик проверяет зависимости и выполняет подготовку окружения:
-загружает модель Vosk (`vosk-model-small-ru-0.22`, ~46 МБ с alphacephei.com),
-клонирует репозитории `vk.py`/`vk_cookie_server.py`, при необходимости собирает
-whisper-server, а затем запускает фоновые сервисы (whisper, vk-cookie-server).
+загружает модель Vosk (`vosk-model-small-ru-0.22`, ~46 МБ) из основного
+зеркала (с фолбэком на Hugging Face), проверяет/собирает whisper-server,
+а затем запускает фоновые сервисы (whisper).
 
 ```bash
 ./setup.sh              # полная проверка + запуск сервисов
 ./setup.sh --check-only # только проверка, ничего не запускать
 ./setup.sh --no-whisper # пропустить whisper
 ```
-
-Расширение vk-ext в браузер ставится отдельно; из репозитория используется
-только `vk_cookie_server.py`.
 
 Модель whisper (например `ggml-podlodka-turbo-q8_0.bin`) поместите в `Models/`
 или задайте путь через `export WHISPER_MODEL=/путь/к/модели.bin`.
@@ -128,20 +130,23 @@ kill $(cat /tmp/raisa/*.pid)
 .
 ├── CMakeLists.txt          # сборка (FFmpeg/libcurl — REQUIRED, Vosk — обязателен)
 ├── raisa.conf              # конфиг ассистента
-├── vk.conf                 # секреты VK
+├── vk.conf                 # секреты VK (chmod 600)
 ├── setup.sh                # установщик/запуск сервисов
-├── main.cpp                # точка входа: загрузка конфига, громкость, запуск
+├── assets/                 # картинки для README и ui-ресурсы
 ├── src/
-│   ├── Config.cpp/.h       # парсер конфига (singleton)
-│   ├── VoiceController.cpp # цикл прослушивания, распознавание, диалог
-│   ├── vosk.cpp/.h         # распознавание команд (vosk_api.h)
-│   ├── Ollama.cpp/.h       # запросы к LLM (OLLAMA_URL + /api/chat)
-│   ├── control.cpp/.h      # setVolume(), сохранение громкости
-│   ├── audio.cpp/.h        # захват Micro через av_find_input_format("pulse")
-│   └── Skills/             # LlmSkill, TimerSkill, VkMusicSkill, WeatherSkill
-├── services/               # systemd-юниты для whisper/vk-cookie-server
-└── Models/                 # модели Vosk/whisper
+│   ├── app/main.cpp        # точка входа
+│   ├── core/               # Config, Process (exec), Paths, Text
+│   ├── audio/              # захват микрофона (PulseAudio/AV)
+│   ├── speech/             # распознавание Vosk/Whisper
+│   ├── llm/                # клиент Ollama
+│   ├── skills/             # LiM, Timer, VK-музыка, Погода + регистр/роутер
+│   ├── skills/model/       # LmTypes, WeatherTypes
+│   ├── vkmusic/            # vk.py (мост к VK Music)
+│   ├── youtubemusic/       # ytMusic.py (мост к YouTube Music)
+│   ├── ddg/                # ddg.py + vendor/ (поиск DuckDuckGo, MIT/BSD)
+│   ├── net/ playback/ daemon/
+├── Models/                 # модели Vosk/whisper
+└── whisper.cpp/            # сборка whisper-server (для Whisper-распознавания)
 ```
 
-`vk-ext/` — отдельный репозиторий Firefox-расширения и приёмника VK-кук:
-https://github.com/iplly/vk-ext
+`vk.conf` — приватный файл с токенами VK.
