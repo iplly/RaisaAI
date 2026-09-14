@@ -241,7 +241,7 @@ void VoiceController::processor() {
       auto diff = duration_cast<seconds>(end - start).count();
       spdlog::info("Время выполнения: {}", diff);
     } catch (const std::exception &e) {
-      spdlog::info("Ошибка обработчика: {}", e.what());
+      spdlog::error("Ошибка обработчика: {}", e.what());
     }
   }
 }

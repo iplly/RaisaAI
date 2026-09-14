@@ -1,4 +1,4 @@
 #pragma once
 #include <string>
 
-std::string exec(std::string args);
+std::string exec(const std::string &args);

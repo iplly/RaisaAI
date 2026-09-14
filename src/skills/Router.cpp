@@ -31,9 +31,11 @@ json SkillChoser(const std::string &message) {
 
     json j = ollama.chat(jsonData)["message"]["tool_calls"];
 
-    spdlog::info("Вызванный инструмент: {}, Параметры: {}",
-                 j[0]["function"]["name"].dump(),
-                 j[0]["function"]["arguments"].dump());
+    if (!j.is_null()) {
+      spdlog::info("Вызванный инструмент: {}, Параметры: {}",
+                   j[0]["function"]["name"].dump(),
+                   j[0]["function"]["arguments"].dump());
+    }
 
     return (j.empty()) ? json(nullptr) : j[0];
   } catch (const std::exception &e) {

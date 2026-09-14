@@ -35,7 +35,7 @@ int main() {
     if (in >> volume)
       volume = std::clamp(volume, 0, 100);
     g_volume = static_cast<uint8_t>(volume);
-    spdlog::info("g_volume: {}", g_volume.load());
+    spdlog::info("g_volume: {}", volume);
     VoiceController voice_controller;
     skill_init();
     debugInit(voice_controller);

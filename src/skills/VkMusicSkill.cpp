@@ -24,7 +24,6 @@ std::string VKMusicSkill::execute(json j) {
     m.recognitions = j.value("recognitions", "");
     m.langs = j.value("langs", "");
   }
-  std::cout << "VKMusicSkill execute: " << j << "\n\n";
   if (busy) {
     stop();
   }
@@ -57,7 +56,6 @@ std::deque<Track> VKMusicSkill::vk(std::string cmd, std::string args) {
   try {
     std::lock_guard<std::mutex> lg(vkMtx);
     std::deque<Track> queueTracks;
-    std::cout << "python vk.py " + cmd + " " + args + "\n\n";
     json search_result =
         json::parse(exec("python src/vkmusic/vk.py " + cmd + " " +
                          (args.empty() ? "" : "\"" + args + "\"")));

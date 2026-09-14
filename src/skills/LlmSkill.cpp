@@ -187,7 +187,8 @@ void LLMSkill::start(std::string message) {
       if ((!isToolCall || toolCalls > 15)) {
         done = true;
       }
-      spdlog::info("\ndone: {} toolCalls: {}", done, toolCalls);
+      std::cout << "\n";
+      spdlog::info("done: {} toolCalls: {}", done, toolCalls);
 
       context.messages.push_back(std::move(agentMessage));
       context.messages.push_back(tool);

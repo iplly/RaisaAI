@@ -33,6 +33,8 @@ LOG_DIR="$RUN_DIR"
 # --- Репозитории внешних компонентов (впишите ваши ссылки) ---
 # vk.py: Python-мост к VK Music API (внутри каталога src/vkmusic, в этом репозитории)
 VK_PY_REPO="${VK_PY_REPO:-}"
+# vk-ext: расширение Firefox + приёмник VK-кук (браузер ставится отдельно)
+VK_EXT_REPO="https://github.com/iplly/vk-ext"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -186,8 +188,11 @@ else
   fi
 fi
 
-echo "   vk-cookie-server не нужен: vk.py минтит свежую куку при каждом вызове"
-echo ""
+if [ -n "$VK_EXT_REPO" ]; then
+  ensure_repo "$VK_EXT_REPO" "$ROOT/vk-ext"
+else
+  warn "VK_EXT_REPO не задан — vk-ext пропущен"
+fi
 
 # --- 6. Whisper ---
 if [ "$skip_whisper" = false ]; then
@@ -223,8 +228,7 @@ if [ "$skip_whisper" = false ]; then
       echo "  Собираю whisper.cpp..."
       cd "$WHISPER_SRC"
       # Vulkan: если есть заголовки/либа — включаем ускорение GGML_VULKAN=ON.
-      # Для сборки нужен не только рантайм, но и dev-пакет (vulkan-header + vulkan-loader).
-      VULKAN_CMAKE_ARGS=()
+      # Иначе явно GGML_VULKAN=OFF (иначе кэш прошлой сборки может удержать ON).
       if pkg-config --exists vulkan 2>/dev/null; then
         ok "Vulkan: найден (pkg-config), включаю GGML_VULKAN=ON"
         VULKAN_CMAKE_ARGS=(-DGGML_VULKAN=ON)
@@ -232,9 +236,21 @@ if [ "$skip_whisper" = false ]; then
         warn "Vulkan не найден (нужен vulkan-header + vulkan-loader). Собираю без GPU-ускорения (CPU)."
         warn "  Debian/Ubuntu: sudo apt install libvulkan-dev"
         warn "  Arch:           sudo pacman -S vulkan-headers vulkan-icd-loader"
+        VULKAN_CMAKE_ARGS=(-DGGML_VULKAN=OFF)
       fi
-      cmake -B build -DCMAKE_BUILD_TYPE=Release "${VULKAN_CMAKE_ARGS[@]}" >/dev/null 2>&1
-      cmake --build build -j"$(nproc)" --target whisper-server >/dev/null 2>&1
+      CMAKE_LOG="$WHISPER_SRC/.skip-whisper-cmake.log"
+      if ! cmake -B build -DCMAKE_BUILD_TYPE=Release "${VULKAN_CMAKE_ARGS[@]}" >"$CMAKE_LOG" 2>&1; then
+        fail "cmake упал (хвост лога: $CMAKE_LOG)"
+        tail -20 "$CMAKE_LOG" | sed 's/^/    /'
+        cd "$ROOT"
+        exit 1
+      fi
+      if ! cmake --build build -j"$(nproc)" --target whisper-server >>"$CMAKE_LOG" 2>&1; then
+        fail "Сборка whisper-server упала (хвост лога: $CMAKE_LOG)"
+        tail -20 "$CMAKE_LOG" | sed 's/^/    /'
+        cd "$ROOT"
+        exit 1
+      fi
       cd "$ROOT"
       WHISPER_BIN="$WHISPER_SRC/build/bin/whisper-server"
       if [ -x "$WHISPER_BIN" ]; then
