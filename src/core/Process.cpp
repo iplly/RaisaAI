@@ -1,12 +1,15 @@
 #include "core/Process.h"
 #include <cstdio>
+#include <ctre.hpp>
 #include <memory>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 #include <string>
 
 std::string exec(const std::string &args) {
-  spdlog::info("exec: {}", args);
+  if (!ctre::search<"(printf)">(args)) {
+    spdlog::info("exec: {}", args);
+  }
   char buf[128];
   std::string result;
   struct FileCloser {

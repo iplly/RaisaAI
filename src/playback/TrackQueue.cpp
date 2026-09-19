@@ -19,6 +19,12 @@ std::optional<Track> TrackQueue::popFront() {
   primary.pop_front();
   return t;
 }
+std::optional<Track> TrackQueue::frontPrimary() {
+  std::lock_guard<std::mutex> lg(mtx);
+  if (primary.empty())
+    return std::nullopt;
+  return primary.front();
+}
 void TrackQueue::pushPrimary(const Track &t) {
   std::lock_guard<std::mutex> lg(mtx);
   primary.push_back(t);
@@ -49,7 +55,7 @@ void TrackQueue::clearPrimary() {
 }
 void TrackQueue::insert(const std::deque<Track> &qs) { // prefetch
   std::lock_guard lk(mtx);
-  primary.insert(primary.begin(), qs.begin(), qs.end());
+  primary.insert(primary.end(), qs.begin(), qs.end());
 }
 void TrackQueue::shufflePrimary() {
   std::lock_guard lk(mtx);

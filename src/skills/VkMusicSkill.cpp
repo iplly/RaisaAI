@@ -6,6 +6,7 @@
 #include "skills/Skill.h"
 #include "skills/ToolDefs.h"
 #include <csignal>
+#include <deque>
 #include <future>
 #include <iostream>
 #include <random>
@@ -52,7 +53,8 @@ void VKMusicSkill::next() {
     kill(childPid, SIGTERM);
 }
 
-std::deque<Track> VKMusicSkill::vk(std::string cmd, std::string args) {
+std::deque<Track> VKMusicSkill::vk(const std::string &cmd,
+                                   const std::string &args) {
   try {
     std::lock_guard<std::mutex> lg(vkMtx);
     std::deque<Track> queueTracks;
@@ -71,17 +73,18 @@ std::deque<Track> VKMusicSkill::vk(std::string cmd, std::string args) {
   }
 }
 
-std::deque<Track> VKMusicSkill::search(std::string query) {
+std::deque<Track> VKMusicSkill::search(const std::string &query,
+                                       unsigned int count) {
   std::deque<Track> queueTracks = vk("search", query);
   if (queueTracks.empty())
     throw std::runtime_error("Ошибка поиска ");
-  if (queueTracks.size() > 3)
-    queueTracks.resize(3);
+  if (queueTracks.size() >= count)
+    queueTracks.resize(count);
   return queueTracks;
 }
 
-std::string VKMusicSkill::extractTrackName(std::string query,
-                                           std::function<json()> tool) {
+std::string VKMusicSkill::extractTrackName(const std::string &query,
+                                           const std::function<json()> &tool) {
   json jsonData = qwen1_7Data;
   Ollama ollama;
   try {
@@ -98,13 +101,13 @@ std::string VKMusicSkill::extractTrackName(std::string query,
   }
 }
 
-void VKMusicSkill::add(std::string query) {
+void VKMusicSkill::add(const std::string &query) {
   addTo(TrackQueue::Queue::Second, query);
 }
-void VKMusicSkill::addToEnd(std::string query) {
+void VKMusicSkill::addToEnd(const std::string &query) {
   addTo(TrackQueue::Queue::Primary, query);
 }
-void VKMusicSkill::addTo(TrackQueue::Queue queue, std::string query) {
+void VKMusicSkill::addTo(TrackQueue::Queue queue, const std::string &query) {
   try {
     json trackName = extractTrackName(query, vkmusicAddTool);
 
@@ -132,7 +135,8 @@ void VKMusicSkill::shuffle(std::deque<Track> &queue) {
 
 void VKMusicSkill::shuffleQueue() { trackQueue.shufflePrimary(); }
 
-void VKMusicSkill::start(std::string track, std::string type, mixType mt) {
+void VKMusicSkill::start(const std::string &track, const std::string &type,
+                         mixType mt) {
   std::deque<Track> first;
   trackQueue.clear();
   try {
@@ -160,7 +164,15 @@ void VKMusicSkill::start(std::string track, std::string type, mixType mt) {
 
 void VKMusicSkill::player(mixType &mt) {
   std::future<std::deque<Track>> prefetch;
-  std::string currentTrack = "spmsE_9Np6M";
+  std::string similarTrack = "";
+
+  if (!trackQueue.primary.empty() && !mixStatus) {
+    auto [_, artist, id] = trackQueue.frontPrimary().value();
+    similarTrack = id;
+    std::deque<Track> authorTrack = search(artist, 3);
+    trackQueue.insert(authorTrack);
+  }
+  std::cout << trackQueue << "\n";
 
   while (!trackQueue.primary.empty() || !trackQueue.second.empty()) {
     try {
@@ -168,15 +180,17 @@ void VKMusicSkill::player(mixType &mt) {
         return;
 
       auto [title, artist, id] = trackQueue.popFront().value();
-      currentTrack = id;
 
-      if (trackQueue.primary.empty() && !mixStatus)
-        prefetch = std::async(std::launch::async, [this, currentTrack] {
-          return similar(currentTrack);
+      if (trackQueue.primary.empty() && !mixStatus) {
+        if (similarTrack.empty())
+          similarTrack = id;
+        prefetch = std::async(std::launch::async, [this, similarTrack] {
+          return similar(similarTrack);
         });
-      else if (trackQueue.primary.empty() && mixStatus)
+      } else if (trackQueue.primary.empty() && mixStatus) {
         prefetch =
             std::async(std::launch::async, [this, mt] { return mix(mt); });
+      }
 
       std::string stream_url = getStream(id);
       if (stopFlag)
@@ -200,13 +214,13 @@ void VKMusicSkill::player(mixType &mt) {
 }
 
 std::deque<Track> VKMusicSkill::my() { return vk("my", "2000"); }
-std::deque<Track> VKMusicSkill::mix(mixType mt) {
+std::deque<Track> VKMusicSkill::mix(const mixType &mt) {
   return vk("mix " + mt.vibes + " " + mt.recognitions + " " + mt.langs);
 }
-std::deque<Track> VKMusicSkill::similar(std::string id) {
+std::deque<Track> VKMusicSkill::similar(const std::string &id) {
   return vk("similar", id);
 }
-std::deque<Track> VKMusicSkill::playlist(std::string playlistName) {
+std::deque<Track> VKMusicSkill::playlist(const std::string &playlistName) {
   std::map<std::string, int> playlistDict{{"для вас", -21},
                                           {"плейлист недели", -22},
                                           {"новинки", -23},
@@ -250,7 +264,7 @@ std::deque<Track> VKMusicSkill::playlist(std::string playlistName) {
 void VKMusicSkill::clearSecond() { trackQueue.clearSecond(); }
 void VKMusicSkill::clearPrimary() { trackQueue.clearPrimary(); }
 
-std::string VKMusicSkill::getStream(std::string id) {
+std::string VKMusicSkill::getStream(const std::string &id) {
   json stream_url = json::parse(exec("python src/vkmusic/vk.py stream " + id));
   if (!stream_url.is_object() || stream_url.value("ok", false) == false) {
     std::cout << "Нет стрима\n\n";

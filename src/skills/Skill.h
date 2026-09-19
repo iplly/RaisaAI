@@ -76,19 +76,19 @@ class VKMusicSkill : public Skill {
   struct TrackQueue trackQueue;
   std::atomic<bool> mixStatus{false};
   std::mutex vkMtx;
-  void start(std::string, std::string, mixType);
+  void start(const std::string &, const std::string &, mixType);
   void player(mixType &);
   void shuffle(std::deque<Track> &queue);
-  void addTo(TrackQueue::Queue, std::string);
-  std::deque<Track> vk(std::string cmd, std::string args = "");
-  std::deque<Track> search(std::string);
-  std::deque<Track> mix(mixType mt = {"\"\"", "\"\"", "\"\""});
+  void addTo(TrackQueue::Queue, const std::string &query);
+  std::deque<Track> vk(const std::string &cmd, const std::string &args = "");
+  std::deque<Track> search(const std::string &query, unsigned int count = 1);
+  std::deque<Track> mix(const mixType &mt = {"\"\"", "\"\"", "\"\""});
   std::deque<Track> my();
-  std::deque<Track> similar(std::string);
-  std::deque<Track> playlist(std::string);
-  std::string getStream(std::string);
-  std::string extractTrackName(std::string,
-                               std::function<json()> = vkmusicTool);
+  std::deque<Track> similar(const std::string &);
+  std::deque<Track> playlist(const std::string &);
+  std::string getStream(const std::string &);
+  std::string extractTrackName(const std::string &query,
+                               const std::function<json()> &tool = vkmusicTool);
 
 public:
   friend void debugConsole();
@@ -99,8 +99,8 @@ public:
   std::string execute(json) override;
   void stop() override;
   void next();
-  void add(std::string);
-  void addToEnd(std::string);
+  void add(const std::string &);
+  void addToEnd(const std::string &);
   void shuffleQueue();
   void clearSecond();
   void clearPrimary();

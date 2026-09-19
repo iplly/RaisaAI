@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <deque>
 #include <mutex>
 #include <optional>
@@ -8,9 +9,10 @@
 struct TrackQueue {
   std::deque<struct Track> primary;
   std::deque<struct Track> second;
-  enum class Queue { Primary, Second };
+  enum class Queue : std::uint8_t { Primary, Second };
 
   std::optional<Track> popFront();
+  std::optional<Track> frontPrimary();
   void pushPrimary(const Track &t);
   void pushSecond(const Track &t);
   void set(std::deque<Track> &&q);

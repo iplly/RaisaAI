@@ -25,6 +25,11 @@ VOSK_URLS=(
 VOSK_ZIP="$MODELS_DIR/vosk-model-small-ru-0.22.zip"
 VOSK_TMP="$MODELS_DIR/.tmp-vosk"
 WHISPER_PORT=8000
+# TTS (qwen-talker). Модели лежат в $MODELS_DIR; имена переопределяемые.
+TTS_PORT=8001
+TTS_MODEL_BASE="${TTS_MODEL_BASE:-qwen-talker-1.7b-customvoice-Q8_0.gguf}"
+TTS_MODEL_CODEC="${TTS_MODEL_CODEC:-qwen-tokenizer-12hz-Q8_0.gguf}"
+TTS_ALIAS="qwen3-tts-base"
 # PID и логи — в каталог времени выполнения (переносимо для любого пользователя)
 RUN_DIR="${XDG_RUNTIME_DIR:-/tmp}/raisa"
 PIDFILE_DIR="$RUN_DIR"
@@ -309,11 +314,20 @@ else
         -l ru \
         >"$LOG_DIR/raisa-whisper.log" 2>&1 &
       echo $! >"$PIDFILE_DIR/whisper-server.pid"
-      sleep 1
-      if port_in_use "$WHISPER_PORT"; then
+      # Модель грузится не мгновенно — ждём порт до 30 c.
+      WHISPER_UP=false
+      for _ in $(seq 1 30); do
+        if port_in_use "$WHISPER_PORT"; then
+          WHISPER_UP=true
+          break
+        fi
+        sleep 1
+      done
+      if [ "$WHISPER_UP" = true ]; then
         ok "whisper-server запущен (PID $(cat "$PIDFILE_DIR/whisper-server.pid"))"
       else
         fail "whisper-server не запустился (см. $LOG_DIR/raisa-whisper.log)"
+        tail -20 "$LOG_DIR/raisa-whisper.log" | sed 's/^/    /'
       fi
     fi
   else
@@ -321,10 +335,63 @@ else
   fi
 fi
 
-# --- 7b. VK Cookie Server — удалён: vk.py минтит свежую куку при каждом
-# вызове, отдельный сервис для обновления VK_COOKIE не нужен. ---
+# --- 7b. TTS server (qwen-talker) ---
+echo "   tts-server (:$TTS_PORT)..."
+TTS_BIN=""
+for candidate in \
+  "$ROOT/qwentts.cpp/build/tts-server" \
+  "$ROOT/qwentts.cpp/build/bin/tts-server"; do
+  if [ -x "$candidate" ]; then
+    TTS_BIN="$candidate"
+    break
+  fi
+done
+if [ -z "$TTS_BIN" ] && command -v tts-server >/dev/null 2>&1; then
+  TTS_BIN="$(command -v tts-server)"
+fi
+if port_in_use "$TTS_PORT"; then
+  ok "Порт $TTS_PORT уже занят (tts-server работает)"
+else
+  if [ "$check_only" = true ]; then
+    warn "Порт $TTS_PORT свободен (tts-server не запущен)"
+  elif [ -n "$TTS_BIN" ]; then
+    TTS_MODEL_PATH="$MODELS_DIR/$TTS_MODEL_BASE"
+    TTS_CODEC_PATH="$MODELS_DIR/$TTS_MODEL_CODEC"
+    if [ -f "$TTS_MODEL_PATH" ] && [ -f "$TTS_CODEC_PATH" ]; then
+      nohup "$TTS_BIN" \
+        --model "$TTS_MODEL_PATH" \
+        --codec "$TTS_CODEC_PATH" \
+        --alias "$TTS_ALIAS" \
+        --port "$TTS_PORT" \
+        >"$LOG_DIR/raisa-tts.log" 2>&1 &
+      echo $! >"$PIDFILE_DIR/tts-server.pid"
+      # Модель (2+ ГБ) грузится дольше секунды — ждём порт до 30 c.
+      TTS_UP=false
+      for _ in $(seq 1 30); do
+        if port_in_use "$TTS_PORT"; then
+          TTS_UP=true
+          break
+        fi
+        sleep 1
+      done
+      if [ "$TTS_UP" = true ]; then
+        ok "tts-server запущен (PID $(cat "$PIDFILE_DIR/tts-server.pid"))"
+      else
+        fail "tts-server не запустился (см. $LOG_DIR/raisa-tts.log)"
+        tail -20 "$LOG_DIR/raisa-tts.log" | sed 's/^/    /'
+      fi
+    else
+      warn "Модели TTS не найдены в $MODELS_DIR:"
+      echo "    $TTS_MODEL_BASE"
+      echo "    $TTS_MODEL_CODEC"
+      echo "    Положите их в $MODELS_DIR "
+    fi
+  else
+    warn "tts-server не найден, пропуск "
+  fi
+fi
 
-# --- 8. vk.conf ---
+# --- 7c. vk.conf ---
 echo "8. Проверка vk.conf..."
 if [ -f "$ROOT/vk.conf" ]; then
   ok "vk.conf существует"
