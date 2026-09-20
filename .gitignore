@@ -27,6 +27,7 @@ vk.conf
 services/
 TODO.md
 whisper.cpp/
+qwentts.cpp/
 vk-ext/
 llama.cpp-omni/
 .clang-tidy
@@ -35,6 +36,7 @@ CMakePresets.json
 
 # Модели
 Models/
+src/skills/model/llmprompts_local.h
 
 # Аудио
 *.wav

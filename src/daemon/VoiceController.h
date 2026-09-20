@@ -2,12 +2,14 @@
 #include "audio/AudioCapture.h"
 #include "daemon/TaskQueue.h"
 #include "speech/VoskRecognizer.h"
+#include "tts/TTSClient.h"
 #include <atomic>
 #include <string>
 
 class VoiceController {
   AudioController audio;
   SpeechRecognizer vosk;
+  TTSClient tts;
   std::atomic<bool> skip{false};
   std::atomic<bool> processing{false};
   TaskQueue taskQueue;

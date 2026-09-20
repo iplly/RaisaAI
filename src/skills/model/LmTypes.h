@@ -1,5 +1,6 @@
 #pragma once
 #include "core/Json.h"
+#include <nlohmann/detail/macro_scope.hpp>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
@@ -53,13 +54,28 @@ struct LLMMessage {
                                  tool_calls)
 };
 
-struct LLMRequest {
+class LLMRequest {
+  struct Options {
+    double temperature;
+    int top_k;
+    double top_p;
+    double min_p;
+    int num_ctx;
+    double num_predict;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(Options, temperature, top_k, top_p, min_p,
+                                   num_ctx, num_predict)
+  };
+
+public:
   std::string model;
-  bool stream;
-  int keep_alive;
+  bool stream = false;
+  int keep_alive = -1;
+  bool think = false;
+  Options options;
   std::vector<LLMMessage> messages;
   std::vector<LLMTool> tools;
 
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(LLMRequest, model, stream, keep_alive,
-                                 messages, tools)
+                                 messages, tools, options, think)
 };

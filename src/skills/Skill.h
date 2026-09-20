@@ -52,14 +52,22 @@ public:
 
 class LLMSkill : public Skill {
   StreamBuffer stream;
-  LLMRequest context = {Config::instance().get("LLM_MODEL"), true, -1, {}, {}};
+  LLMRequest context = {.model = Config::instance().get("LLM_MODEL"),
+                        .stream = true,
+                        .keep_alive = -1,
+                        .options = {},
+                        .messages = {},
+                        .tools = {}};
   void start(std::string);
   std::vector<LLMMessage> ToolChoser(const json &);
+  std::optional<std::string> _lastResponse = std::nullopt;
 
 public:
   std::string name() const override;
   std::string description() const override;
   std::string execute(json) override;
+  std::optional<std::string> lastResponse();
+  void lastResponseReset();
   void stop() override;
   LLMSkill();
   bool running() const;

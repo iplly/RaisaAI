@@ -124,7 +124,8 @@ VoiceController::VoiceController()
             Config::instance().get("AUDIO_CHANNELS"),
             Config::instance().get("AUDIO_DEVICE")),
       vosk(Config::instance().get("VOSK_PATH"),
-           std::stof(Config::instance().get("AUDIO_RATE"))) {
+           std::stof(Config::instance().get("AUDIO_RATE"))),
+      tts() {
   curl_global_init(CURL_GLOBAL_DEFAULT);
 }
 
@@ -136,6 +137,7 @@ void VoiceController::Run() {
 }
 
 void VoiceController::listener() {
+  LLMSkill *llm = g_skills.llmskill.get();
   bool triggered = 0;
   AVPacket packet = {};
   std::vector<uint8_t> audioBuffer;
@@ -155,9 +157,14 @@ void VoiceController::listener() {
       // if (speech != "" && !llm->running())
       //   printBottom(speech + " " + std::to_string(status));
 
+      if (llm->lastResponse().has_value()) {
+        tts.speak(llm->lastResponse().value());
+        llm->lastResponseReset();
+      }
+
       if (ctre::search<"(раиса|раечка)">(speech) && triggered == 0) {
         mpvSetVolume(g_volume / 2);
-        spdlog::info("g_volume: ", (int)g_volume);
+        spdlog::info("g_volume: {}", (int)g_volume);
         triggered = 1;
         vosk.reset();
         continue;
@@ -229,7 +236,7 @@ void VoiceController::processor() {
           g_skills.weather->execute(arguments);
         }
         if (name == "VKMusicSkill") {
-          g_skills.vkmusic->execute(arguments);
+          tts.speak(g_skills.vkmusic->execute(arguments));
         }
         if (name == "TimerSkill") {
           g_skills.timerskill->execute(arguments);

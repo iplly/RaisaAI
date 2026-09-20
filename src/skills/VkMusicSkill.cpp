@@ -7,9 +7,11 @@
 #include "skills/ToolDefs.h"
 #include <csignal>
 #include <deque>
+#include <exception>
 #include <future>
 #include <iostream>
 #include <random>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <sys/wait.h>
 
@@ -33,7 +35,26 @@ std::string VKMusicSkill::execute(json j) {
   busy = true;
   stopFlag = false;
   worker = std::jthread(&VKMusicSkill::start, this, track, type, m);
-  return "";
+  retOpt rt;
+  std::string ret = "Включаю: ";
+  try {
+    if (type == "playlist")
+      return ret += "плейлист " + track;
+    else if (type == "my")
+      return ret += "Вашу музыку";
+    else if (type == "mix")
+      return ret += rt.vibes.find(m.vibes)->second + " микс с " +
+                    rt.recognitions.find(m.recognitions)->second + " песнями " +
+                    rt.langs.find(m.langs)->second;
+    else
+      return ret += track;
+  } catch (const std::exception &e) {
+    spdlog::warn("Ошибка подготовки текста для TTS");
+    return ret;
+  }
+
+  spdlog::info("Отправляю в TTS: {}", ret);
+  return ret;
 }
 
 void VKMusicSkill::stop() {
@@ -85,7 +106,7 @@ std::deque<Track> VKMusicSkill::search(const std::string &query,
 
 std::string VKMusicSkill::extractTrackName(const std::string &query,
                                            const std::function<json()> &tool) {
-  json jsonData = qwen1_7Data;
+  json jsonData = router;
   Ollama ollama;
   try {
     jsonData["tools"].push_back(tool());
