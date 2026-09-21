@@ -68,6 +68,7 @@ public:
   std::string execute(json) override;
   std::optional<std::string> lastResponse();
   void lastResponseReset();
+  std::string systemStatusPrompt();
   void stop() override;
   LLMSkill();
   bool running() const;
@@ -82,7 +83,9 @@ class VKMusicSkill : public Skill {
 
   std::atomic<pid_t> childPid{-1};
   struct TrackQueue trackQueue;
+  Track _nowPlaying = {"", "", ""};
   std::atomic<bool> mixStatus{false};
+  std::atomic<bool> searchStatus{false};
   std::mutex vkMtx;
   void start(const std::string &, const std::string &, mixType);
   void player(mixType &);
@@ -105,6 +108,7 @@ public:
   std::string description() const override;
   const std::function<json()> tool = vkmusicTool;
   std::string execute(json) override;
+  Track nowPlaying() const;
   void stop() override;
   void next();
   void add(const std::string &);

@@ -21,7 +21,7 @@ void skill_init() {
                 {
                     .temperature = 0,
                     .top_p = 0,
-                    .num_ctx = 2049,
+                    .num_ctx = 65536,
                     .num_predict = 64,
                 },
             .messages = {{.role = "system", .content = routerSystemPrompt}}};

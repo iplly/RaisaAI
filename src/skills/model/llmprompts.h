@@ -85,6 +85,9 @@ constexpr auto systemShellPropCommandPrompt =
     "объясни пользователю, что нужно сделать вручную.";
 
 // --- Разговорная модель ---
+#ifdef USE_PERSONAL_PROMPT
+#include "prompt_local2.h"
+#else
 constexpr auto llmSkillSystemPrompt =
     "Ты — Раиса, голосовой помощник. Ты общаешься с пользователем на русском "
     "языке."
@@ -132,6 +135,7 @@ constexpr auto llmSkillSystemPrompt =
     "ГЛАВНОЕ ПРАВИЛО:"
     "Ты — голосовой помощник. Твой ответ должен хорошо звучать и легко "
     "пониматься с первого раза.";
+#endif
 
 // --- Роутер команд ---
 constexpr auto routerSystemPrompt =
@@ -148,5 +152,13 @@ constexpr auto routerSystemPrompt =
     "type=\"search\", track=\"Кино группа крови\". "
     "НИКОГДА не пиши в type никаких других слов, кроме "
     "search/playlist/mix/my — иначе запрос провалится. "
-    "Про погоду или температуру → WeatherSkill."
-    "ОБЯЗАТЕЛЬНО ПОЛЬЗУЙСЯ ИНСТРУМЕНТАМИ";
+    "Про погоду или температуру → WeatherSkill.";
+
+// --- Контекст системы (заполняется на лету, не constexpr) ---
+constexpr auto systemInfoPrompt = "Ты знаешь текущий контекст системы: "
+                                  "сегодня {date}, сейчас {time}. "
+                                  "Сейчас играет: {track}. "
+                                  "Пользователя зовут {username}. "
+    // "Активные таймеры: {timers}. "
+    // "Город пользователя: {city}."
+    ;

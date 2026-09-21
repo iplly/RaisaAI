@@ -13,29 +13,11 @@
 #include <ctre.hpp>
 #include <ctre/wrapper.hpp>
 #include <exception>
-#include <memory>
 #include <spdlog/spdlog.h>
 #include <string>
 #include <thread>
 #include <unistd.h>
 #include <vector>
-
-// static int rows() {
-//   winsize ws;
-//   ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
-//   return ws.ws_row;
-// }
-//
-// static void printBottom(const std::string &text) {
-//   // сохранить позицию
-//   std::cout << "\033[s";
-//   // перейти на последнюю строку
-//   std::cout << "\033[" << rows() << ";1H";
-//   // очистить строку и напечатать
-//   std::cout << "\033[K" << text << std::flush;
-//   // вернуть курсор
-//   std::cout << "\033[u" << std::flush;
-// }
 
 bool VoiceController::quickCommand(const std::string &full) {
   if (ctre::search<"(стоп|остановись)">(full)) {
@@ -150,12 +132,10 @@ void VoiceController::listener() {
       if (triggered == 1)
         audioBuffer.insert(audioBuffer.end(), packet.data,
                            packet.data + packet.size);
-      int status = vosk.acceptWaveform(packet);
+
+      int status = vosk.acceptWaveform(packet, triggered);
 
       std::string speech = vosk.getPartial();
-
-      // if (speech != "" && !llm->running())
-      //   printBottom(speech + " " + std::to_string(status));
 
       if (llm->lastResponse().has_value()) {
         tts.speak(llm->lastResponse().value());

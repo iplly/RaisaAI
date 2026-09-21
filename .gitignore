@@ -37,6 +37,8 @@ CMakePresets.json
 # Модели
 Models/
 src/skills/model/llmprompts_local.h
+src/skills/model/prompt_local.h
+src/skills/model/prompt_local2.h
 
 # Аудио
 *.wav

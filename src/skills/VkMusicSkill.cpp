@@ -2,6 +2,7 @@
 #include "core/Text.h"
 #include "llm/OllamaClient.h"
 #include "playback/MpvController.h"
+#include "playback/TrackQueue.h"
 #include "skills/Router.h"
 #include "skills/Skill.h"
 #include "skills/ToolDefs.h"
@@ -34,6 +35,8 @@ std::string VKMusicSkill::execute(json j) {
     worker.join();
   busy = true;
   stopFlag = false;
+  mixStatus = false;
+  searchStatus = false;
   worker = std::jthread(&VKMusicSkill::start, this, track, type, m);
   retOpt rt;
   std::string ret = "Включаю: ";
@@ -53,7 +56,6 @@ std::string VKMusicSkill::execute(json j) {
     return ret;
   }
 
-  spdlog::info("Отправляю в TTS: {}", ret);
   return ret;
 }
 
@@ -148,6 +150,8 @@ void VKMusicSkill::addTo(TrackQueue::Queue queue, const std::string &query) {
   }
 }
 
+Track VKMusicSkill::nowPlaying() const { return _nowPlaying; }
+
 void VKMusicSkill::shuffle(std::deque<Track> &queue) {
   std::random_device rd;
   std::mt19937 gen(rd());
@@ -170,6 +174,7 @@ void VKMusicSkill::start(const std::string &track, const std::string &type,
     } else if (type == "my") {
       first = my();
     } else {
+      searchStatus = true;
       first = search(track);
     }
     trackQueue.set(std::move(first));
@@ -187,7 +192,7 @@ void VKMusicSkill::player(mixType &mt) {
   std::future<std::deque<Track>> prefetch;
   std::string similarTrack = "";
 
-  if (!trackQueue.primary.empty() && !mixStatus) {
+  if (!trackQueue.primary.empty() && !mixStatus && searchStatus) {
     auto [_, artist, id] = trackQueue.frontPrimary().value();
     similarTrack = id;
     std::deque<Track> authorTrack = search(artist, 3);
@@ -201,6 +206,7 @@ void VKMusicSkill::player(mixType &mt) {
         return;
 
       auto [title, artist, id] = trackQueue.popFront().value();
+      _nowPlaying = {title, artist, id};
 
       if (trackQueue.primary.empty() && !mixStatus) {
         if (similarTrack.empty())
@@ -267,7 +273,6 @@ std::deque<Track> VKMusicSkill::playlist(const std::string &playlistName) {
     std::deque<Track> queueTracks;
     int playlistId = -21;
     std::string playlistName2 = "none";
-    std::cout << "playlistName: " << toLowerUtf8(playlistName) << "\n\n";
     for (const auto &playlist : playlistDict) {
       if (toLowerUtf8(playlistName).find(playlist.first) != std::string::npos) {
         playlistId = playlist.second;

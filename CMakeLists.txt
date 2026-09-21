@@ -70,6 +70,11 @@ if(RAISA_SANITIZE)
     add_link_options(-fsanitize=${RAISA_SANITIZE})
 endif()
 
+# Личный системный промпт (не коммитится в git)
+if(EXISTS "${CMAKE_SOURCE_DIR}/src/skills/model/prompt_local.h")
+    add_compile_definitions(USE_PERSONAL_PROMPT)
+endif()
+
 find_package(PkgConfig REQUIRED)
 
 # Vosk — ищем по всей стандартной системе (без жёстких PATHS), чтобы охватить

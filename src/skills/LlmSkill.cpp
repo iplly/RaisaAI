@@ -2,14 +2,19 @@
 #include "core/Json.h"
 #include "core/Process.h"
 #include "net/Curl.h"
+#include "playback/TrackQueue.h"
 #include "skills/Skill.h"
+#include "skills/SkillContext.h"
 #include "skills/model/LmTypes.h"
 #include "skills/model/llmprompts.h"
 #include <exception>
+#include <fmt/base.h>
 #include <iostream>
 #include <optional>
+#include <pwd.h>
 #include <spdlog/spdlog.h>
 #include <string>
+#include <unistd.h>
 
 std::string LLMSkill::name() const { return "LlmSkill"; }
 std::string LLMSkill::description() const { return ""; }
@@ -54,7 +59,7 @@ LLMSkill::LLMSkill() {
   context.tools.push_back(std::move(tool2));
   context.tools.push_back(std::move(tool3));
   context.options.temperature = 0.7;
-  context.options.num_ctx = 64000;
+  context.options.num_ctx = 65536;
   context.options.top_p = 0.9;
   context.think = true;
   context.stream = true;
@@ -102,6 +107,7 @@ void LLMSkill::start(std::string message) {
           if (j["message"].contains("tool_calls")) {
             ++toolCalls;
             isToolCall = true;
+            stream.full.clear();
 
             std::cout << j["message"]["tool_calls"] << "\n\n";
             agentMessage.tool_calls = j["message"]["tool_calls"];
@@ -142,6 +148,27 @@ void LLMSkill::start(std::string message) {
   }
 }
 
+static std::string get_username() {
+  uid_t uid = geteuid();
+  struct passwd *pw = getpwuid(uid);
+  if (pw) {
+    return std::string(pw->pw_name);
+  }
+  return "Unknown";
+}
+
+std::string LLMSkill::systemStatusPrompt() {
+  auto now = std::chrono::system_clock::now();
+  std::string date = std::format("{:%Y-%m-%d}", now);
+  std::string time = std::format("{:%H:%M:%S}", now);
+  Track track = g_skills.vkmusic->nowPlaying();
+  std::string trackStr = track.artist + "--" + track.title;
+  return fmt::format(systemInfoPrompt, fmt::arg("date", date),
+                     fmt::arg("time", time),
+                     fmt::arg("track", track.id.empty() ? "ничего" : trackStr),
+                     fmt::arg("username", get_username()));
+}
+
 std::optional<std::string> LLMSkill::lastResponse() { return _lastResponse; }
 void LLMSkill::lastResponseReset() { _lastResponse.reset(); }
 
@@ -168,7 +195,7 @@ std::vector<LLMMessage> LLMSkill::ToolChoser(const json &tools) {
       }
     } catch (const std::exception &e) {
       spdlog::error("Ошибка вызова инструмента агентом: {}", e.what());
-      msg.content = "Ошибка инструмента";
+      msg.content = "Ошибка инструмента " + std::string(e.what());
     }
     msgTools.push_back(msg);
   }

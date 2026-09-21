@@ -7,11 +7,13 @@
 
 class SpeechRecognizer {
   VoskRecognizer *vosk_recognizer;
+  VoskRecognizer *trigger_vosk_recognizer;
   VoskModel *vosk_model;
 
 public:
   SpeechRecognizer(std::string modelPath, double sampleRate);
-  int acceptWaveform(AVPacket packet);
+  int acceptWaveform(AVPacket packet, bool triggered = false);
+  int triggerAcceptWaveform(AVPacket packet);
   std::string getPartial();
   std::string getFull();
   void reset();
