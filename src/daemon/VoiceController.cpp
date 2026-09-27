@@ -25,8 +25,11 @@ bool VoiceController::quickCommand(const std::string &full) {
       skip = true;
       return 1;
     }
-    if (g_skills.llmskill->running())
+    spdlog::info("Выключаю");
+    if (g_skills.llmskill->running()) {
       g_skills.llmskill->stop();
+    } else if (tts.speaking())
+      tts.stop();
     else if (g_skills.vkmusic->running())
       g_skills.vkmusic->stop();
     return 1;
@@ -144,7 +147,7 @@ void VoiceController::listener() {
 
       if (ctre::search<"(раиса|раечка)">(speech) && triggered == 0) {
         mpvSetVolume(g_volume / 2);
-        spdlog::info("g_volume: {}", (int)g_volume);
+        spdlog::info("Triggered: {}", speech);
         triggered = 1;
         vosk.reset();
         continue;
@@ -161,7 +164,8 @@ void VoiceController::listener() {
         goto nahui;
       } else if (status == 1 && triggered == 0) {
       nahui:
-        mpvSetVolume(g_volume);
+        if (!tts.speaking())
+          mpvSetVolume(g_volume);
         triggered = 0;
         speech.clear();
         vosk.reset();
@@ -197,7 +201,8 @@ void VoiceController::processor() {
       if (!handleCommand(full)) {
 
         spdlog::info("Обрабатывю запрос");
-        json tool = SkillChoser(full);
+        json tool = nullptr;
+        tool = SkillChoser(full);
         if (skip.exchange(false)) {
           spdlog::warn("Задача прервана");
           continue;

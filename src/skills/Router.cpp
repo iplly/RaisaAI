@@ -25,7 +25,8 @@ json SkillChoser(const std::string &message) {
     json j = ollama.chat(jsonData);
     json tool = j["message"]["tool_calls"];
 
-    spdlog::info("{}", j["message"]["content"].get<std::string>());
+    spdlog::info("Роутер сообщение: {}",
+                 j["message"]["content"].get<std::string>());
     if (!tool.is_null()) {
       spdlog::info("Вызванный инструмент: {}, Параметры: {}",
                    tool[0]["function"]["name"].dump(),

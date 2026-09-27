@@ -7,6 +7,7 @@
 #include <csignal>
 #include <cstddef>
 #include <curl/curl.h>
+#include <fcntl.h>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -37,29 +38,31 @@ void TTSClient::stop() {
     std::lock_guard<std::mutex> lg(mtx);
     queue.clear();
   }
-  pid_t pid = mpvPid.load();
-  if (pid > 0)
-    kill(-pid, SIGTERM);
+  if (mpvPid > 0) {
+    kill(mpvPid, SIGTERM);
+    mpvPid = -1;
+  }
   stopFlag = true;
   cv.notify_all();
 }
 
 bool TTSClient::generate(const std::string &text) {
+  spdlog::info("Начало генерации TTS");
   int fds[2];
-  pipe(fds);
+  pipe2(fds, O_CLOEXEC);
   pid_t pid = fork();
   if (pid == 0) {
     setpgid(0, 0);
     dup2(fds[0], STDIN_FILENO);
     close(fds[0]);
     close(fds[1]);
-    execlp("mpv", "mpv", "--no-terminal", "--no-video",
-           "--cache-pause-initial=yes", "--cache-pause-wait=2",
-           "--demuxer=rawaudio", "--demuxer-rawaudio-format=s16le",
-           "--demuxer-rawaudio-rate=24000", "--demuxer-rawaudio-channels=1",
-           "-", nullptr);
+    execlp("mpv", "mpv", "--no-terminal", "--no-video", "--audio-buffer=1",
+           "--cache=yes", "--demuxer=rawaudio",
+           "--demuxer-rawaudio-format=s16le", "--demuxer-rawaudio-rate=24000",
+           "--demuxer-rawaudio-channels=1", "-", nullptr);
     _exit(127);
   }
+  mpvPid = pid;
   close(fds[0]);
   mpvSetVolume(g_volume / 2);
   Curl curl(Config::instance().get("TTS_ULR"));
@@ -74,12 +77,16 @@ bool TTSClient::generate(const std::string &text) {
     ssize_t written = write(fds[1], data, len);
     return written > 0 ? (size_t)written : 0;
   });
+  spdlog::info("Генерация TTS завершена");
   close(fds[1]);
   waitpid(pid, nullptr, 0);
   mpvPid = -1;
   mpvSetVolume(g_volume);
+  spdlog::info("Выход TTSClient::generate");
   return res == CURLE_OK && !stopFlag.load();
 }
+
+bool TTSClient::speaking() const { return active; }
 
 void TTSClient::run() {
   spdlog::info("TTS Запущен");

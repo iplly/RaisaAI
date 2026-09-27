@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <mutex>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <sys/types.h>
 #include <thread>

@@ -70,6 +70,9 @@ void LLMSkill::start(std::string message) {
     bool done = false;
     Curl curlLlm(Config::instance().get("OLLAMA_URL") + "/api/chat");
     std::string headers = "Content-Type: application/json";
+
+    spdlog::info("Системная информация: {}", systemStatusPrompt());
+    message.insert(0, systemStatusPrompt() + "\n\n");
     LLMMessage userMessage = {"user", std::move(message)};
     context.messages.push_back(std::move(userMessage));
 

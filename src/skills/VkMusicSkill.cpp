@@ -61,10 +61,10 @@ std::string VKMusicSkill::execute(json j) {
 
 void VKMusicSkill::stop() {
   std::cout << "Останавливаюсь\n";
+  _nowPlaying = {"", "", ""};
   stopFlag = true;
   if (childPid > 0) {
     kill(childPid, SIGTERM);
-    waitpid(childPid, nullptr, 0);
     childPid = -1;
   }
   busy = false;
