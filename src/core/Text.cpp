@@ -87,6 +87,71 @@ int wordsToNumber(std::string w) {
   }
   return total;
 }
+std::string numbertowords(int d) {
+  std::string sign = d < 0 ? d = -d, "минус " : "";
+  std::string out = "";
+
+  static std::vector<std::string> units = {"",       "один",  "два",   "три",
+                                           "четыре", "пять",  "шесть", "семь",
+                                           "восемь", "девять"};
+  static std::vector<std::string> units_f = {"",       "одна",  "две",   "три",
+                                             "четыре", "пять",  "шесть", "семь",
+                                             "восемь", "девять"};
+  static std::vector<std::string> teens = {
+      "десять",       "одиннадцать", "двенадцать",  "тринадцать",
+      "четырнадцать", "пятнадцать",  "шестнадцать", "семнадцать",
+      "восемнадцать", "девятнадцать"};
+  static std::vector<std::string> tens = {
+      "",          "",           "двадцать",  "тридцать",    "сорок",
+      "пятьдесят", "шестьдесят", "семьдесят", "восемьдесят", "девяносто"};
+  static std::vector<std::string> hundreds = {
+      "",        "сто",      "двести",  "триста",    "четыреста",
+      "пятьсот", "шестьсот", "семьсот", "восемьсот", "девятьсот"};
+  static std::vector<std::string> scales = {"", "тысяча", "тысячи", "тысяч"};
+
+  if (d == 0)
+    return "ноль";
+
+  int u = d % 10;
+  int t = ((d - u) % 100) / 10;
+  int h = ((d - t * 10) % 1000) / 100;
+  int s = d / 1000;
+  int su = s % 10;
+  int st = ((s - su) % 100) / 10;
+  int sh = ((s - st * 10) % 1000) / 100;
+  int s10 = s % 10;
+  int s100 = s % 100;
+
+  out += hundreds[sh] + (sh ? " " : "");
+  if (st == 1) {
+    out += teens[su] + " ";
+  } else {
+    out += tens[st] + (st ? " " : "");
+    out += units_f[su] + (su ? " " : "");
+  }
+  if (s == 0)
+    out += scales[0];
+  else if (s100 >= 11 && s100 <= 14)
+    out += scales[3];
+  else if (s10 == 1)
+    out += scales[1];
+  else if (s10 >= 2 && s10 <= 4)
+    out += scales[2];
+  else
+    out += scales[3];
+
+  out += (s && (h || t || u) ? " " : "");
+
+  out += hundreds[h] + ((t && h) || (h && u) ? " " : "");
+  if (t == 1) {
+    out += teens[u];
+  } else {
+    out += tens[t] + (u && t ? " " : "");
+    out += units[u];
+  }
+
+  return sign + out;
+}
 
 std::string toPrepositional(std::string city) {
   static const std::map<std::string, std::string> ex = {

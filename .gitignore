@@ -21,6 +21,8 @@ Raisa.exe
 
 # Токены
 vk.conf
+#WARN: ВРЕМЕННО
+owm.h 
 
 # Инструменты
 .cache/
@@ -56,3 +58,7 @@ tempFiles/
 !assets/*.mp3
 
 youtubemusic/
+
+# Скрипты ручной проверки TTS
+tts.sh
+tts-styles.sh

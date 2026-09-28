@@ -1,12 +1,14 @@
 #include "core/Config.h"
 #include "core/Json.h"
 #include "core/Process.h"
+#include "core/Text.h"
 #include "net/Curl.h"
 #include "playback/TrackQueue.h"
 #include "skills/Skill.h"
 #include "skills/SkillContext.h"
 #include "skills/model/LmTypes.h"
 #include "skills/model/llmprompts.h"
+#include <cstddef>
 #include <exception>
 #include <fmt/base.h>
 #include <iostream>
@@ -141,8 +143,6 @@ void LLMSkill::start(std::string message) {
       context.messages.push_back(tool);
     }
 
-    // std::cout << stream.full << "\n\n";
-
     _lastResponse = stream.full;
     busy = false;
   } catch (std::exception &e) {
@@ -161,15 +161,38 @@ static std::string get_username() {
 }
 
 std::string LLMSkill::systemStatusPrompt() {
+
+  // Curl curlIP("https://free.freeipapi.com/api/v1/json/");
+  // Curl curlGeo("https://geocoding-api.open-meteo.com/v1/");
+  std::string city = "Санкт-Петербург";
+  // std::string result;
+  // curlIP.get("", [&](const char *data, size_t len) -> size_t {
+  //   result.append(data, len);
+  //   return len;
+  // });
+  // json curlJson = json::parse(result);
+  // city = curlJson["cityName"];
+  // result.clear();
+  // curlGeo.get("search?name=" + urlEncode(city) + "&count=1&language=ru",
+  //             [&](const char *data, size_t len) -> size_t {
+  //               result.append(data, len);
+  //               return len;
+  //             });
+  // city = json::parse(result)["results"][0]["admin1"].get<std::string>();
+  // std::cout << json::parse(result).dump(2) << "\n\n";
+  // result.clear();
+
   auto now = std::chrono::system_clock::now();
   std::string date = std::format("{:%Y-%m-%d}", now);
   std::string time = std::format("{:%H:%M:%S}", now);
+
   Track track = g_skills.vkmusic->nowPlaying();
   std::string trackStr = track.artist + "--" + track.title;
-  return fmt::format(systemInfoPrompt, fmt::arg("date", date),
-                     fmt::arg("time", time),
-                     fmt::arg("track", track.id.empty() ? "ничего" : trackStr),
-                     fmt::arg("username", get_username()));
+
+  return fmt::format(
+      systemInfoPrompt, fmt::arg("date", date), fmt::arg("time", time),
+      fmt::arg("track", track.id.empty() ? "ничего" : trackStr),
+      fmt::arg("username", get_username()), fmt::arg("city", city));
 }
 
 std::optional<std::string> LLMSkill::lastResponse() { return _lastResponse; }

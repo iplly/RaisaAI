@@ -30,6 +30,7 @@ void TTSClient::speak(const std::string &text) {
   spdlog::info("Отправляю в TTS: {}", text);
   queue.push_back(text);
   cv.notify_all();
+  stopFlag = false;
   spdlog::info("Задача TTS получена");
 }
 
@@ -46,7 +47,7 @@ void TTSClient::stop() {
   cv.notify_all();
 }
 
-bool TTSClient::generate(const std::string &text) {
+void TTSClient::generate(const std::string &text) {
   spdlog::info("Начало генерации TTS");
   int fds[2];
   pipe2(fds, O_CLOEXEC);
@@ -71,7 +72,7 @@ bool TTSClient::generate(const std::string &text) {
   TTSJsonBody body{.input = text};
   json bodyJson = body;
 
-  auto res = curl.post(bodyJson, [&](const char *data, size_t len) -> size_t {
+  curl.post(bodyJson, [&](const char *data, size_t len) -> size_t {
     if (stopFlag.load())
       return 0;
     ssize_t written = write(fds[1], data, len);
@@ -83,7 +84,6 @@ bool TTSClient::generate(const std::string &text) {
   mpvPid = -1;
   mpvSetVolume(g_volume);
   spdlog::info("Выход TTSClient::generate");
-  return res == CURLE_OK && !stopFlag.load();
 }
 
 bool TTSClient::speaking() const { return active; }
@@ -94,18 +94,13 @@ void TTSClient::run() {
     std::string text;
     {
       std::unique_lock<std::mutex> ul(mtx);
-      cv.wait(ul, [&] { return stopFlag || !queue.empty(); });
-      if (queue.empty() || stopFlag)
-        break;
+      cv.wait(ul, [&] { return !queue.empty(); });
       text = queue.front();
       queue.pop_front();
     }
     active = true;
-    bool ended = generate(text);
+    generate(text);
+    stopFlag = false;
     active = false;
-    if (ended) {
-      stopFlag = false;
-      continue;
-    }
   }
 }

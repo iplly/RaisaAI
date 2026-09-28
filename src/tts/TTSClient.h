@@ -14,7 +14,7 @@ class TTSClient {
   std::atomic<pid_t> mpvPid;
   std::jthread worker;
   void run();
-  bool generate(const std::string &text);
+  void generate(const std::string &text);
 
 public:
   TTSClient();

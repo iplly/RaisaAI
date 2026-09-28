@@ -12,6 +12,7 @@ void skill_init() {
   g_skills.llmskill = std::make_unique<LLMSkill>();
   g_skills.vkmusic = std::make_unique<VKMusicSkill>();
   g_skills.timerskill = std::make_unique<TimerSkill>();
+  g_skills.tts = std::make_unique<TTSClient>();
 
   router = {.model = Config::instance().get("ROUTER_MODEL"),
             .stream = false,

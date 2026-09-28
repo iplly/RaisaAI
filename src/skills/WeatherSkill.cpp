@@ -1,42 +1,81 @@
 #include "core/Text.h"
 #include "net/Curl.h"
 #include "skills/Skill.h"
+#include "skills/SkillContext.h"
 #include "skills/model/WeatherTypes.h"
+#include <cstddef>
 #include <iostream>
+#include <string>
+#include <vector>
 
-static std::string wmo2ru(int code) {
-  if (code == 0)
-    return "ясно";
-  if (code <= 2)
-    return "малооблачно";
-  if (code == 3)
-    return "пасмурно";
-  if (code == 45 || code == 48)
-    return "туман";
-  if (code >= 51 && code <= 57)
-    return "морось";
-  if (code >= 61 && code <= 67)
-    return "дождь";
-  if (code >= 71 && code <= 77)
-    return "снег";
-  if (code >= 80 && code <= 82)
-    return "ливень";
-  if (code >= 95 && code <= 99)
-    return "гроза";
-  return "";
-}
 static std::string windDirectionText(int degrees) {
-  const std::vector<std::string> dirs = {"С", "СВ", "В", "ЮВ",
-                                         "Ю", "ЮЗ", "З", "СЗ"};
+  const std::vector<std::string> dirs = {
+      "Северный", "Северо восточный", "Восточный", "Юго восточный",
+      "Южный",    "Юго западный",     "Западный",  "Северо западный"};
   int idx = static_cast<int>((degrees + 22.5) / 45.0) % 8;
   return dirs[idx];
 }
-std::string extractTime(const std::string &iso8601) {
-  size_t tpos = iso8601.find('T');
-  if (tpos != std::string::npos) {
-    return iso8601.substr(tpos + 1, 5); // "HH:MM"
+static std::string fractionName(std::size_t digits) {
+  switch (digits) {
+  case 1:
+    return " десят";
+  case 2:
+    return " сот";
+  case 3:
+    return " тысячн";
+  case 4:
+    return " десятитысячн";
+  default:
+    return "";
   }
-  return iso8601;
+}
+static std::string morfSet(std::string digits) {
+  if (digits.back() == '1' && digits != "11")
+    return "ая ";
+  else
+    return "ых ";
+}
+
+static std::string doubleToSplitString(double d) {
+
+  std::ostringstream os;
+  os << std::fixed << std::setprecision(2) << d;
+  std::string str_d = os.str();
+  auto pos = str_d.find('.');
+  if (pos == std::string::npos)
+    return str_d;
+  std::string whole, frac;
+  whole = str_d.substr(0, pos);
+  frac = str_d.substr(pos + 1);
+
+  return numbertowords(std::stoi(whole)) + " цел" + morfSet(whole) +
+         numbertowords(std::stoi(frac)) + fractionName(frac.size()) +
+         morfSet(frac);
+}
+
+static std::string extractTime(long long unix_sec, int tz_offset_sec) {
+  std::time_t t = unix_sec + tz_offset_sec;
+  std::tm tm{};
+  gmtime_r(&t, &tm);
+  char bufH[8];
+  char bufM[8];
+  std::strftime(bufH, sizeof(bufH), "%H", &tm);
+  std::strftime(bufM, sizeof(bufM), "%M", &tm);
+  return numbertowords(std::stoi(std::string(bufH))) + " часов " +
+         numbertowords(std::stoi(std::string(bufM))) + " минут";
+}
+static double dewPoint(double T, double humidity) {
+  constexpr double a = 17.27;
+  constexpr double b = 237.7;
+
+  // На всякий случай защищаемся от некорректных входных данных
+  if (humidity <= 0.0)
+    return -273.15; // сухой воздух → бесконечно низкая точка росы
+  if (humidity > 100.0)
+    humidity = 100.0;
+
+  double alpha = (a * T) / (b + T) + std::log(humidity / 100.0);
+  return (b * alpha) / (a - alpha);
 }
 
 std::string WeatherSkill::name() const { return "WeatherSkill"; }
@@ -61,87 +100,82 @@ std::string WeatherSkill::execute(json j) {
   return "";
 }
 std::string WeatherSkill::start(std::string city, bool detal) {
+  std::string message;
+
   try {
-    Curl curlIP("https://free.freeipapi.com/api/json/");
-    Curl curlGeo("https://geocoding-api.open-meteo.com/v1/");
-    Curl curlMeteo("https://api.open-meteo.com/v1/");
-    std::string result;
-    if (city == "null") {
-      curlIP.get("", [&](const char *data, size_t len) -> size_t {
-        result.append(data, len);
-        return len;
-      });
-      json curlJson = json::parse(result);
-      city = curlJson["cityName"];
-      std::cout << "cityName: " << city << "\n\n";
-      result.clear();
-    }
+    Geo geo = geoCoding(city);
 
-    curlGeo.get("search?name=" + urlEncode(city) + "&count=1&language=ru",
-                [&](const char *data, size_t len) -> size_t {
-                  result.append(data, len);
-                  return len;
-                });
-    json geoJson = json::parse(result)["results"][0];
-    std::cout << geoJson << "\n\n";
+    WeatherOWMResponse meteo = owmProvider(geo.lat, geo.lon);
+    double temp = meteo.main.temp;
+    double feels = meteo.main.feels_like;
+    double temp_min = meteo.main.temp_min;
+    double temp_max = meteo.main.temp_max;
+    int humidity = meteo.main.humidity;
+    int pressure = meteo.main.pressure;
+    double wind_speed = meteo.wind.speed;
+    std::string weather =
+        meteo.weather.empty() ? "" : meteo.weather.front().description;
+    std::string wind_dir = windDirectionText(meteo.wind.deg);
+    std::string sunrise = extractTime(meteo.sys.sunrise, meteo.timezone);
+    std::string sunset = extractTime(meteo.sys.sunset, meteo.timezone);
+    city = meteo.name;
 
-    result.clear();
-    curlMeteo.get(
-        "forecast?latitude=" +
-            std::to_string(geoJson["latitude"].get<double>()) +
-            "&longitude=" + std::to_string(geoJson["longitude"].get<double>()) +
-            "&current=temperature_2m,relative_humidity_2m,apparent_temperature,"
-            "is_day,precipitation,rain,weather_code,cloud_cover,pressure_msl,"
-            "wind_speed_10m,wind_direction_10m,wind_gusts_10m&daily=weather_"
-            "code,temperature_2m_max,temperature_2m_min,precipitation_"
-            "probability_max,sunrise,sunset,uv_index_max&timezone=auto&"
-            "forecast_days=1",
-        [&](const char *data, size_t len) -> size_t {
-          result.append(data, len);
-          return len;
-        });
-    WeatherResponse meteoJson = json::parse(result).get<WeatherResponse>();
-    const auto &cur = meteoJson.current;
-    double temp = cur.temperature_2m;
-    double feels = cur.apparent_temperature;
-    int humidity = cur.relative_humidity_2m;
-    double wind_speed = cur.wind_speed_10m;
-    int wind_dir = cur.wind_direction_10m;
-    double pressure = cur.pressure_msl;
-    std::string weather = wmo2ru(cur.weather_code);
+    message =
+        "Погода в " + toPrepositional(city) + ": сейчас " +
+        doubleToSplitString(temp) + " градусов, ощущается как " +
+        doubleToSplitString(feels) + " градусов, " + weather + ".\n" +
+        "Влажность " + numbertowords(humidity) + " процентов, точка росы " +
+        doubleToSplitString(dewPoint(meteo.main.temp, meteo.main.humidity)) +
+        ", ветер " + doubleToSplitString(wind_speed) + " метров в секунду (" +
+        wind_dir + "), давление " + numbertowords(pressure) +
+        " гектопаскаль.\n" + "Сегодня: от " + doubleToSplitString(temp_min) +
+        " градусов до " + doubleToSplitString(temp_max) +
+        " градусов. Рассвет в " + sunrise + ", закат в " + sunset + ".\n";
 
-    const auto &day = meteoJson.daily;
-    double t_min = day.temperature_2m_min[0];
-    double t_max = day.temperature_2m_max[0];
-    int precip_prob = day.precipitation_probability_max[0];
-    std::string sunrise_time = extractTime(day.sunrise[0]);
-    std::string sunset_time = extractTime(day.sunset[0]);
-
-    // Направление ветра текстом
-    std::string wind_dir_text = windDirectionText(wind_dir);
-
-    // Вывод с фиксированной точностью
-    std::cout << std::fixed << std::setprecision(1);
-    if (detal) {
-      std::cout << "Погода в "
-                << toPrepositional(geoJson["name"].get<std::string>())
-                << ": сейчас " << temp << "°, ощущается " << feels << "°, "
-                << weather << ".\n";
-      std::cout << "Влажность " << humidity << "%, ветер " << wind_speed
-                << " км/ч (" << wind_dir_text << "), давление " << pressure
-                << " гПа.\n";
-      std::cout << "Сегодня: от " << t_min << "° до " << t_max << "°, "
-                << precip_prob << "% дождя. Рассвет " << sunrise_time
-                << ", закат " << sunset_time << ".\n";
-    } else {
-      std::cout << "Погода в " << geoJson["name"].get<std::string>() << " "
-                << meteoJson.current.temperature_2m
-                << meteoJson.current_units.temperature_2m << "\n\n";
-    }
+    g_skills.tts->speak(message);
 
   } catch (const std::exception &e) {
     std::cout << "Ошибка получения погоды" << e.what() << "\n\n";
   }
   busy = false;
-  return "";
+  return message;
+}
+
+WeatherSkill::Geo WeatherSkill::geoCoding(const std::string &city) {
+  Curl curlIP("https://free.freeipapi.com/api/v1/json/");
+  Curl curlGeo("https://geocoding-api.open-meteo.com/v1/");
+  std::string result;
+  std::string cityResult = city;
+  if (city == "null") {
+    curlIP.get("", [&](const char *data, size_t len) -> size_t {
+      result.append(data, len);
+      return len;
+    });
+    json curlJson = json::parse(result);
+    cityResult = curlJson["cityName"];
+    result.clear();
+  }
+
+  curlGeo.get("search?name=" + urlEncode(cityResult) + "&count=1&language=ru",
+              [&](const char *data, size_t len) -> size_t {
+                result.append(data, len);
+                return len;
+              });
+  json geoJson = json::parse(result)["results"][0];
+  return {.lat = geoJson["latitude"].get<double>(),
+          .lon = geoJson["longitude"].get<double>()};
+}
+
+WeatherOWMResponse WeatherSkill::owmProvider(double lat, double lon) {
+#include "../../owm.h" //WARN: ВРЕМЕННО
+  Curl curlMeteo("https://api.openweathermap.org/data/2.5/weather");
+  std::string result;
+  curlMeteo.get("?lat=" + std::to_string(lat) + "&lon=" + std::to_string(lon) +
+                    "&appid=" + OPENWEATHERMAPAPI + "&units=metric&lang=ru",
+                [&](const char *data, size_t len) -> size_t {
+                  result.append(data, len);
+                  return len;
+                });
+  WeatherOWMResponse owmResponse = json::parse(result);
+  return owmResponse;
 }

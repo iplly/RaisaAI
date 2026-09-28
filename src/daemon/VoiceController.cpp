@@ -28,8 +28,8 @@ bool VoiceController::quickCommand(const std::string &full) {
     spdlog::info("Выключаю");
     if (g_skills.llmskill->running()) {
       g_skills.llmskill->stop();
-    } else if (tts.speaking())
-      tts.stop();
+    } else if (g_skills.tts->speaking())
+      g_skills.tts->stop();
     else if (g_skills.vkmusic->running())
       g_skills.vkmusic->stop();
     return 1;
@@ -109,8 +109,7 @@ VoiceController::VoiceController()
             Config::instance().get("AUDIO_CHANNELS"),
             Config::instance().get("AUDIO_DEVICE")),
       vosk(Config::instance().get("VOSK_PATH"),
-           std::stof(Config::instance().get("AUDIO_RATE"))),
-      tts() {
+           std::stof(Config::instance().get("AUDIO_RATE"))) {
   curl_global_init(CURL_GLOBAL_DEFAULT);
 }
 
@@ -136,12 +135,12 @@ void VoiceController::listener() {
         audioBuffer.insert(audioBuffer.end(), packet.data,
                            packet.data + packet.size);
 
-      int status = vosk.acceptWaveform(packet, triggered);
+      int status = vosk.acceptWaveform(packet);
 
       std::string speech = vosk.getPartial();
 
       if (llm->lastResponse().has_value()) {
-        tts.speak(llm->lastResponse().value());
+        g_skills.tts->speak(llm->lastResponse().value());
         llm->lastResponseReset();
       }
 
@@ -155,6 +154,7 @@ void VoiceController::listener() {
 
       else if (status == 1 && triggered == 1) {
         std::string full = vosk.getFull();
+        spdlog::info("vosk: {}", full);
         if (!quickCommand(full)) {
           (++ringIndex) %= 10;
           audio.saveWav("/tmp/raisa_" + std::to_string(ringIndex) + ".wav",
@@ -164,7 +164,7 @@ void VoiceController::listener() {
         goto nahui;
       } else if (status == 1 && triggered == 0) {
       nahui:
-        if (!tts.speaking())
+        if (!g_skills.tts->speaking())
           mpvSetVolume(g_volume);
         triggered = 0;
         speech.clear();
@@ -221,7 +221,7 @@ void VoiceController::processor() {
           g_skills.weather->execute(arguments);
         }
         if (name == "VKMusicSkill") {
-          tts.speak(g_skills.vkmusic->execute(arguments));
+          g_skills.tts->speak(g_skills.vkmusic->execute(arguments));
         }
         if (name == "TimerSkill") {
           g_skills.timerskill->execute(arguments);

@@ -4,6 +4,7 @@
 #include "playback/TrackQueue.h"
 #include "skills/ToolDefs.h"
 #include "skills/model/LmTypes.h"
+#include "skills/model/WeatherTypes.h"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -43,11 +44,18 @@ public:
 
 class WeatherSkill : public Skill {
 public:
+  struct Geo {
+    double lat;
+    double lon;
+  };
   std::string name() const override;
   std::string description() const override;
   const std::function<json()> tool = weatherTool;
   std::string execute(json) override;
   std::string start(std::string, bool);
+  WeatherOWMResponse owmProvider(double lat, double lon);
+  WeatherResponse omProvider();
+  Geo geoCoding(const std::string &city = "");
 };
 
 class LLMSkill : public Skill {

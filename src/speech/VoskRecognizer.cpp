@@ -27,8 +27,7 @@ int SpeechRecognizer::acceptWaveform(AVPacket packet, bool triggered) {
                                          (char *)packet.data, packet.size);
 }
 std::string SpeechRecognizer::getPartial() {
-  const char *partial_strJson =
-      vosk_recognizer_partial_result(trigger_vosk_recognizer);
+  const char *partial_strJson = vosk_recognizer_partial_result(vosk_recognizer);
   auto patrialJson = json::parse(partial_strJson);
   return patrialJson.value("partial", "");
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include "daemon/VoiceController.h"
 #include "skills/Skill.h"
 #include <memory>
 
@@ -8,6 +9,7 @@ struct Skills {
   std::unique_ptr<VKMusicSkill> vkmusic;
   std::unique_ptr<LLMSkill> llmskill;
   std::unique_ptr<TimerSkill> timerskill;
+  std::unique_ptr<TTSClient> tts;
 };
 
 extern struct Skills g_skills;

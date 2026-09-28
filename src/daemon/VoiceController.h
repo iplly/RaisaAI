@@ -9,7 +9,6 @@
 class VoiceController {
   AudioController audio;
   SpeechRecognizer vosk;
-  TTSClient tts;
   std::atomic<bool> skip{false};
   std::atomic<bool> processing{false};
   TaskQueue taskQueue;

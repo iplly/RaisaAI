@@ -12,7 +12,7 @@ class SpeechRecognizer {
 
 public:
   SpeechRecognizer(std::string modelPath, double sampleRate);
-  int acceptWaveform(AVPacket packet, bool triggered = false);
+  int acceptWaveform(AVPacket packet, bool triggered = true);
   int triggerAcceptWaveform(AVPacket packet);
   std::string getPartial();
   std::string getFull();
