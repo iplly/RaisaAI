@@ -41,6 +41,7 @@ LLMSkill::LLMSkill() {
   LLMTool tool1;
   LLMTool tool2;
   LLMTool tool3;
+  LLMTool tool4;
   tool1.function.name = "get_aboba";
   tool1.function.description = getAbobaDescriptionPrompt;
   tool1.function.parameters.properties.insert(
@@ -55,16 +56,23 @@ LLMSkill::LLMSkill() {
   tool3.function.description = systemShellDescriptionPrompt;
   tool3.function.parameters.properties.insert(
       {"command", {"string", systemShellPropCommandPrompt}});
+  tool4.function.name = "flip_computer";
+  tool4.function.description = flipComputerDescriptionPrompt;
+  tool4.function.parameters.properties.insert(
+      {"angle", {"string", flipComputerPropAnglePrompt}});
 
   context.messages = {{.role = "system", .content = llmSkillSystemPrompt}};
   context.tools.push_back(std::move(tool1));
   context.tools.push_back(std::move(tool2));
   context.tools.push_back(std::move(tool3));
+  context.tools.push_back(std::move(tool4));
   context.options.temperature = 0.7;
   context.options.num_ctx = 65536;
   context.options.top_p = 0.9;
   context.think = true;
   context.stream = true;
+  // json j = context;
+  // std::cout << j.dump(2) << "\n\n";
 }
 
 void LLMSkill::start(std::string message) {
@@ -73,7 +81,7 @@ void LLMSkill::start(std::string message) {
     Curl curlLlm(Config::instance().get("OLLAMA_URL") + "/api/chat");
     std::string headers = "Content-Type: application/json";
 
-    spdlog::info("Системная информация: {}", systemStatusPrompt());
+    spdlog::info("Системная информация: {}\n", systemStatusPrompt());
     message.insert(0, systemStatusPrompt() + "\n\n");
     LLMMessage userMessage = {"user", std::move(message)};
     context.messages.push_back(std::move(userMessage));
@@ -138,6 +146,8 @@ void LLMSkill::start(std::string message) {
       }
       std::cout << "\n";
       spdlog::info("done: {} toolCalls: {}", done, toolCalls);
+      if (!agentMessage.content.empty())
+        g_skills.tts->speak(agentMessage.content);
 
       context.messages.push_back(std::move(agentMessage));
       context.messages.push_back(tool);
@@ -161,7 +171,7 @@ static std::string get_username() {
 }
 
 std::string LLMSkill::systemStatusPrompt() {
-
+  using namespace std::chrono;
   // Curl curlIP("https://free.freeipapi.com/api/v1/json/");
   // Curl curlGeo("https://geocoding-api.open-meteo.com/v1/");
   std::string city = "Санкт-Петербург";
@@ -182,9 +192,11 @@ std::string LLMSkill::systemStatusPrompt() {
   // std::cout << json::parse(result).dump(2) << "\n\n";
   // result.clear();
 
-  auto now = std::chrono::system_clock::now();
-  std::string date = std::format("{:%Y-%m-%d}", now);
-  std::string time = std::format("{:%H:%M:%S}", now);
+  auto now = system_clock::now();
+  zoned_time zt{current_zone(), now};
+  auto localNow = zt.get_local_time();
+  std::string date = std::format("{:%Y-%m-%d}", localNow);
+  std::string time = std::format("{:%H:%M:%S}", localNow);
 
   Track track = g_skills.vkmusic->nowPlaying();
   std::string trackStr = track.artist + "--" + track.title;
@@ -218,6 +230,10 @@ std::vector<LLMMessage> LLMSkill::ToolChoser(const json &tools) {
       }
       if (name == "system_shell") {
         msg.content = exec(arguments["command"].get<std::string>());
+      }
+      if (name == "flip_computer") {
+        msg.content = "Компьютер перевёрнут на " +
+                      arguments["angle"].get<std::string>() + "градусов";
       }
     } catch (const std::exception &e) {
       spdlog::error("Ошибка вызова инструмента агентом: {}", e.what());

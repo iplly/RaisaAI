@@ -56,12 +56,12 @@ struct LLMMessage {
 
 class LLMRequest {
   struct Options {
-    double temperature;
-    int top_k;
-    double top_p;
-    double min_p;
-    int num_ctx;
-    double num_predict;
+    double temperature = 0.7;
+    int top_k = 40;
+    double top_p = 0.9;
+    double min_p = 0.05;
+    int num_ctx = 65536;
+    double num_predict = -2;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Options, temperature, top_k, top_p, min_p,
                                    num_ctx, num_predict)
@@ -72,9 +72,9 @@ public:
   bool stream = false;
   int keep_alive = -1;
   bool think = false;
-  Options options;
-  std::vector<LLMMessage> messages;
-  std::vector<LLMTool> tools;
+  Options options = {};
+  std::vector<LLMMessage> messages = {};
+  std::vector<LLMTool> tools = {};
 
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(LLMRequest, model, stream, keep_alive,
                                  messages, tools, options, think)

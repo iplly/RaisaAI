@@ -1,8 +1,11 @@
+#include "core/Config.h"
 #include "core/Text.h"
+#include "llm/OllamaClient.h"
 #include "net/Curl.h"
 #include "skills/Skill.h"
 #include "skills/SkillContext.h"
 #include "skills/model/WeatherTypes.h"
+#include "skills/model/llmprompts.h"
 #include <cstddef>
 #include <iostream>
 #include <string>
@@ -101,9 +104,12 @@ std::string WeatherSkill::execute(json j) {
 }
 std::string WeatherSkill::start(std::string city, bool detal) {
   std::string message;
+  const std::string instructions =
+      "serious news anchor voice, formal and clear";
 
   try {
     Geo geo = geoCoding(city);
+    // Ollama ollama;
 
     WeatherOWMResponse meteo = owmProvider(geo.lat, geo.lon);
     double temp = meteo.main.temp;
@@ -122,23 +128,44 @@ std::string WeatherSkill::start(std::string city, bool detal) {
 
     message =
         "Погода в " + toPrepositional(city) + ": сейчас " +
-        doubleToSplitString(temp) + " градусов, ощущается как " +
-        doubleToSplitString(feels) + " градусов, " + weather + ".\n" +
+        doubleToSplitString(temp) + "градусов, ощущается как " +
+        doubleToSplitString(feels) + "градусов, " + weather + ".\n" +
         "Влажность " + numbertowords(humidity) + " процентов, точка росы " +
         doubleToSplitString(dewPoint(meteo.main.temp, meteo.main.humidity)) +
-        ", ветер " + doubleToSplitString(wind_speed) + " метров в секунду (" +
+        ", ветер " + doubleToSplitString(wind_speed) + " метров в секунду, (" +
         wind_dir + "), давление " + numbertowords(pressure) +
         " гектопаскаль.\n" + "Сегодня: от " + doubleToSplitString(temp_min) +
-        " градусов до " + doubleToSplitString(temp_max) +
+        " градусов, до " + doubleToSplitString(temp_max) +
         " градусов. Рассвет в " + sunrise + ", закат в " + sunset + ".\n";
+    // LLMMessage userMessage = {"user", std::move(message)};
+    // caseAgreement.messages.push_back(std::move(userMessage));
+    // json j = ollama.chat(caseAgreement);
 
-    g_skills.tts->speak(message);
+    // g_skills.tts->speak(j["message"]["content"].get<std::string>());
+    g_skills.tts->speak(message, instructions);
 
   } catch (const std::exception &e) {
     std::cout << "Ошибка получения погоды" << e.what() << "\n\n";
   }
   busy = false;
   return message;
+}
+
+WeatherSkill::WeatherSkill() {
+  caseAgreement = {
+      .model = Config::instance().get("ROUTER_MODEL"),
+      .stream = false,
+      .keep_alive = -1,
+      .think = false,
+      .options =
+          {
+              .temperature = 0,
+              .top_k = 1,
+              .top_p = 1.0,
+              .min_p = 0.0,
+              .num_predict = 1024,
+          },
+      .messages = {{.role = "system", .content = weatherReportPrompt}}};
 }
 
 WeatherSkill::Geo WeatherSkill::geoCoding(const std::string &city) {

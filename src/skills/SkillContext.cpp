@@ -21,9 +21,10 @@ void skill_init() {
             .options =
                 {
                     .temperature = 0,
-                    .top_p = 0,
-                    .num_ctx = 65536,
-                    .num_predict = 64,
+                    .top_k = 1,
+                    .top_p = 1.0,
+                    .min_p = 0.0,
+                    .num_predict = -2,
                 },
             .messages = {{.role = "system", .content = routerSystemPrompt}}};
 }

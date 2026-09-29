@@ -14,16 +14,17 @@ json timerTool();
 
 struct retOpt {
   std::unordered_map<std::string, std::string> vibes = {
-      {"happy", "весёлый"},  {"sad", "грустный"},       {"active", "активный"},
-      {"calm", "спокойный"}, {"love", "романтический"}, {"", ""}};
+      {"happy", "весёлый"},
+      {"sad", "грустный"},
+      {"active", "активный"},
+      {"calm", "спокойный"},
+      {"love", "романтический"}};
   std::unordered_map<std::string, std::string> recognitions = {
       {"known", "знакомыми"},
       {"unknown", "незнакомыми"},
-      {"fresh", "новинками"},
-      {"", ""}};
+      {"fresh", "новинками"}};
   std::unordered_map<std::string, std::string> langs = {
       {"ru", "на русском"},
       {"international", "иностранные"},
-      {"instrumental", "инструментальные"},
-      {"", ""}};
+      {"instrumental", "инструментальные"}};
 };

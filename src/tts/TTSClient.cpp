@@ -25,10 +25,11 @@ TTSClient::TTSClient() {
   worker = std::jthread(&TTSClient::run, this);
 }
 
-void TTSClient::speak(const std::string &text) {
+void TTSClient::speak(const std::string &text,
+                      const std::string &instructions) {
   std::lock_guard<std::mutex> lg(mtx);
   spdlog::info("Отправляю в TTS: {}", text);
-  queue.push_back(text);
+  queue.push_back({text, instructions});
   cv.notify_all();
   stopFlag = false;
   spdlog::info("Задача TTS получена");
@@ -47,7 +48,7 @@ void TTSClient::stop() {
   cv.notify_all();
 }
 
-void TTSClient::generate(const std::string &text) {
+void TTSClient::generate(const TTSJob &task) {
   spdlog::info("Начало генерации TTS");
   int fds[2];
   pipe2(fds, O_CLOEXEC);
@@ -69,7 +70,7 @@ void TTSClient::generate(const std::string &text) {
   Curl curl(Config::instance().get("TTS_ULR"));
   curl.addHeaders("Content-Type: application/json");
 
-  TTSJsonBody body{.input = text};
+  TTSJsonBody body{.input = task.text, .instructions = task.instructions};
   json bodyJson = body;
 
   curl.post(bodyJson, [&](const char *data, size_t len) -> size_t {
@@ -91,15 +92,15 @@ bool TTSClient::speaking() const { return active; }
 void TTSClient::run() {
   spdlog::info("TTS Запущен");
   while (true) {
-    std::string text;
+    TTSJob task;
     {
       std::unique_lock<std::mutex> ul(mtx);
       cv.wait(ul, [&] { return !queue.empty(); });
-      text = queue.front();
+      task = queue.front();
       queue.pop_front();
     }
     active = true;
-    generate(text);
+    generate(task);
     stopFlag = false;
     active = false;
   }

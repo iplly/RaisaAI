@@ -14,7 +14,8 @@ struct TTSJsonBody {
   double top_p = 0.9;
   double repetition_penalty = 1.2;
   int seed = 42;
+  std::string instructions;
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(TTSJsonBody, input, voice, lang,
                                  response_format, temperature, top_k, top_p,
-                                 repetition_penalty, seed)
+                                 repetition_penalty, seed, instructions)
 };

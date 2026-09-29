@@ -139,10 +139,10 @@ void VoiceController::listener() {
 
       std::string speech = vosk.getPartial();
 
-      if (llm->lastResponse().has_value()) {
-        g_skills.tts->speak(llm->lastResponse().value());
-        llm->lastResponseReset();
-      }
+      // if (llm->lastResponse().has_value()) {
+      //   g_skills.tts->speak(llm->lastResponse().value());
+      //   llm->lastResponseReset();
+      // }
 
       if (ctre::search<"(раиса|раечка)">(speech) && triggered == 0) {
         mpvSetVolume(g_volume / 2);
@@ -221,7 +221,10 @@ void VoiceController::processor() {
           g_skills.weather->execute(arguments);
         }
         if (name == "VKMusicSkill") {
-          g_skills.tts->speak(g_skills.vkmusic->execute(arguments));
+          const std::string instructions =
+              "serious news anchor voice, formal and clear";
+          g_skills.tts->speak(g_skills.vkmusic->execute(arguments),
+                              instructions);
         }
         if (name == "TimerSkill") {
           g_skills.timerskill->execute(arguments);

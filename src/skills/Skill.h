@@ -43,6 +43,9 @@ public:
 };
 
 class WeatherSkill : public Skill {
+
+  LLMRequest caseAgreement;
+
 public:
   struct Geo {
     double lat;
@@ -55,6 +58,7 @@ public:
   std::string start(std::string, bool);
   WeatherOWMResponse owmProvider(double lat, double lon);
   WeatherResponse omProvider();
+  WeatherSkill();
   Geo geoCoding(const std::string &city = "");
 };
 
@@ -84,9 +88,9 @@ public:
 
 class VKMusicSkill : public Skill {
   struct mixType {
-    std::string vibes = "";
-    std::string recognitions = "";
-    std::string langs = "";
+    std::string vibes;
+    std::string recognitions;
+    std::string langs;
   };
 
   std::atomic<pid_t> childPid{-1};

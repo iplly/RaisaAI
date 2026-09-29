@@ -3,7 +3,6 @@
 #include "skills/SkillContext.h"
 #include "spdlog/spdlog.h"
 #include <exception>
-#include <iostream>
 #include <nlohmann/json.hpp>
 #include <string>
 
@@ -15,6 +14,7 @@ json SkillChoser(const std::string &message) {
   Ollama ollama;
   try {
     json jsonData = router;
+    jsonData["options"]["num_keep"] = 800;
     jsonData["tools"].push_back(g_skills.weather->tool());
     jsonData["tools"].push_back(g_skills.vkmusic->tool());
     jsonData["tools"].push_back(g_skills.timerskill->tool());

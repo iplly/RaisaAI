@@ -24,9 +24,9 @@ std::string VKMusicSkill::execute(json j) {
   std::string track = j.value("track", "");
   std::string type = j.value("type", "search");
   if (type == "mix") {
-    m.vibes = j.value("vibes", "");
-    m.recognitions = j.value("recognitions", "");
-    m.langs = j.value("langs", "");
+    m.vibes = j.value("vibes", "\'\'");
+    m.recognitions = j.value("recognitions", "\'\'");
+    m.langs = j.value("langs", "\'\'");
   }
   if (busy) {
     stop();
@@ -45,11 +45,21 @@ std::string VKMusicSkill::execute(json j) {
       return ret += "плейлист " + track;
     else if (type == "my")
       return ret += "Вашу музыку";
-    else if (type == "mix")
-      return ret += rt.vibes.find(m.vibes)->second + " микс с " +
-                    rt.recognitions.find(m.recognitions)->second + " песнями " +
-                    rt.langs.find(m.langs)->second;
-    else
+    else if (type == "mix") {
+      std::string mixText = "";
+      auto itVibes = rt.vibes.find(m.vibes);
+      auto itRecognitions = rt.recognitions.find(m.recognitions);
+      auto itLangs = rt.langs.find(m.langs);
+      mixText += (itVibes != rt.vibes.end() ? itVibes->second : "");
+      mixText += " микс, ";
+      mixText += (itRecognitions != rt.recognitions.end()
+                      ? "с " + itRecognitions->second +
+                            (m.recognitions != "fresh" ? " песнями " : "")
+                      : "");
+      mixText += (itLangs != rt.langs.end() ? itLangs->second : "");
+      return ret += mixText;
+
+    } else
       return ret += track;
   } catch (const std::exception &e) {
     spdlog::warn("Ошибка подготовки текста для TTS");
