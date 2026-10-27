@@ -33,6 +33,7 @@ qwentts.cpp/
 vk-ext/
 llama.cpp-omni/
 .clang-tidy
+opencode.jsonc
 .clangd
 CMakePresets.json
 

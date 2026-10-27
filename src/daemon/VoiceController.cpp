@@ -121,7 +121,6 @@ void VoiceController::Run() {
 }
 
 void VoiceController::listener() {
-  LLMSkill *llm = g_skills.llmskill.get();
   bool triggered = 0;
   AVPacket packet = {};
   std::vector<uint8_t> audioBuffer;
@@ -138,11 +137,6 @@ void VoiceController::listener() {
       int status = vosk.acceptWaveform(packet);
 
       std::string speech = vosk.getPartial();
-
-      // if (llm->lastResponse().has_value()) {
-      //   g_skills.tts->speak(llm->lastResponse().value());
-      //   llm->lastResponseReset();
-      // }
 
       if (ctre::search<"(раиса|раечка)">(speech) && triggered == 0) {
         mpvSetVolume(g_volume / 2);

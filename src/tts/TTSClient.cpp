@@ -4,9 +4,11 @@
 #include "net/Curl.h"
 #include "playback/MpvController.h"
 #include "playback/VolumeController.h"
+#include <chrono>
 #include <csignal>
 #include <cstddef>
 #include <curl/curl.h>
+#include <exception>
 #include <fcntl.h>
 #include <mutex>
 #include <nlohmann/json.hpp>
@@ -49,42 +51,59 @@ void TTSClient::stop() {
 }
 
 void TTSClient::generate(const TTSJob &task) {
-  spdlog::info("Начало генерации TTS");
-  int fds[2];
-  pipe2(fds, O_CLOEXEC);
-  pid_t pid = fork();
-  if (pid == 0) {
-    setpgid(0, 0);
-    dup2(fds[0], STDIN_FILENO);
+  try {
+    spdlog::info("Начало генерации TTS");
+    int fds[2];
+    pipe2(fds, O_CLOEXEC);
+    pid_t pid = fork();
+    if (pid == 0) {
+      setpgid(0, 0);
+      dup2(fds[0], STDIN_FILENO);
+      close(fds[0]);
+      close(fds[1]);
+      execlp("mpv", "mpv", "--no-terminal", "--no-video", "--audio-buffer=1",
+             "--cache=yes", "--demuxer=rawaudio",
+             "--demuxer-rawaudio-format=s16le", "--demuxer-rawaudio-rate=24000",
+             "--demuxer-rawaudio-channels=1", "-", nullptr);
+      _exit(127);
+    }
+    mpvPid = pid;
     close(fds[0]);
+    mpvSetVolume(g_volume / 2);
+    Curl curl(Config::instance().get("TTS_ULR"));
+    curl.addHeaders("Content-Type: application/json");
+
+    TTSJsonBody body{.input = task.text, .instructions = task.instructions};
+    json bodyJson = body;
+
+    curl.post(bodyJson, [&](const char *data, size_t len) -> size_t {
+      if (stopFlag.load())
+        return 0;
+      ssize_t written = write(fds[1], data, len);
+      return written > 0 ? (size_t)written : 0;
+    });
+    spdlog::info("Генерация TTS завершена");
     close(fds[1]);
-    execlp("mpv", "mpv", "--no-terminal", "--no-video", "--audio-buffer=1",
-           "--cache=yes", "--demuxer=rawaudio",
-           "--demuxer-rawaudio-format=s16le", "--demuxer-rawaudio-rate=24000",
-           "--demuxer-rawaudio-channels=1", "-", nullptr);
-    _exit(127);
+    bool reaped = false;
+    for (int i = 0; i < 300; ++i) {
+      if (waitpid(pid, nullptr, WNOHANG) == pid) {
+        reaped = true;
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    if (!reaped) {
+      spdlog::warn("TTS MPV TimeOut");
+      kill(pid, SIGTERM);
+      waitpid(pid, nullptr, 0);
+    }
+
+    mpvPid = -1;
+    mpvSetVolume(g_volume);
+    spdlog::info("Выход TTSClient::generate");
+  } catch (const std::exception &e) {
+    spdlog::error("Ошибка генерации TTS: {}", e.what());
   }
-  mpvPid = pid;
-  close(fds[0]);
-  mpvSetVolume(g_volume / 2);
-  Curl curl(Config::instance().get("TTS_ULR"));
-  curl.addHeaders("Content-Type: application/json");
-
-  TTSJsonBody body{.input = task.text, .instructions = task.instructions};
-  json bodyJson = body;
-
-  curl.post(bodyJson, [&](const char *data, size_t len) -> size_t {
-    if (stopFlag.load())
-      return 0;
-    ssize_t written = write(fds[1], data, len);
-    return written > 0 ? (size_t)written : 0;
-  });
-  spdlog::info("Генерация TTS завершена");
-  close(fds[1]);
-  waitpid(pid, nullptr, 0);
-  mpvPid = -1;
-  mpvSetVolume(g_volume);
-  spdlog::info("Выход TTSClient::generate");
 }
 
 bool TTSClient::speaking() const { return active; }

@@ -66,9 +66,11 @@ LLMSkill::LLMSkill() {
   context.tools.push_back(std::move(tool2));
   context.tools.push_back(std::move(tool3));
   context.tools.push_back(std::move(tool4));
-  context.options.temperature = 0.7;
+  context.options.temperature = 1.5;
   context.options.num_ctx = 65536;
   context.options.top_p = 0.9;
+  context.options.top_k = 120;
+  context.options.min_p = 0.05;
   context.think = true;
   context.stream = true;
   // json j = context;
@@ -146,8 +148,10 @@ void LLMSkill::start(std::string message) {
       }
       std::cout << "\n";
       spdlog::info("done: {} toolCalls: {}", done, toolCalls);
-      if (!agentMessage.content.empty())
-        g_skills.tts->speak(agentMessage.content);
+      // if (!agentMessage.content.empty()) {
+      // size_t pos = agentMessage.content.find(')');
+      g_skills.tts->speak(agentMessage.content);
+      // }
 
       context.messages.push_back(std::move(agentMessage));
       context.messages.push_back(tool);
@@ -172,25 +176,25 @@ static std::string get_username() {
 
 std::string LLMSkill::systemStatusPrompt() {
   using namespace std::chrono;
-  // Curl curlIP("https://free.freeipapi.com/api/v1/json/");
-  // Curl curlGeo("https://geocoding-api.open-meteo.com/v1/");
+  Curl curlIP("https://free.freeipapi.com/api/v1/json/");
+  Curl curlGeo("https://geocoding-api.open-meteo.com/v1/");
   std::string city = "Санкт-Петербург";
-  // std::string result;
-  // curlIP.get("", [&](const char *data, size_t len) -> size_t {
-  //   result.append(data, len);
-  //   return len;
-  // });
-  // json curlJson = json::parse(result);
-  // city = curlJson["cityName"];
-  // result.clear();
-  // curlGeo.get("search?name=" + urlEncode(city) + "&count=1&language=ru",
-  //             [&](const char *data, size_t len) -> size_t {
-  //               result.append(data, len);
-  //               return len;
-  //             });
-  // city = json::parse(result)["results"][0]["admin1"].get<std::string>();
-  // std::cout << json::parse(result).dump(2) << "\n\n";
-  // result.clear();
+  std::string result;
+  curlIP.get("", [&](const char *data, size_t len) -> size_t {
+    result.append(data, len);
+    return len;
+  });
+  json curlJson = json::parse(result);
+  city = curlJson["cityName"];
+  result.clear();
+  curlGeo.get("search?name=" + urlEncode(city) + "&count=1&language=ru",
+              [&](const char *data, size_t len) -> size_t {
+                result.append(data, len);
+                return len;
+              });
+  city = json::parse(result)["results"][0]["admin1"].get<std::string>();
+  std::cout << json::parse(result).dump(2) << "\n\n";
+  result.clear();
 
   auto now = system_clock::now();
   zoned_time zt{current_zone(), now};

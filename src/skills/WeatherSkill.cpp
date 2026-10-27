@@ -7,7 +7,10 @@
 #include "skills/model/WeatherTypes.h"
 #include "skills/model/llmprompts.h"
 #include <cstddef>
+#include <exception>
 #include <iostream>
+#include <spdlog/spdlog.h>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -109,6 +112,7 @@ std::string WeatherSkill::start(std::string city, bool detal) {
 
   try {
     Geo geo = geoCoding(city);
+
     // Ollama ollama;
 
     WeatherOWMResponse meteo = owmProvider(geo.lat, geo.lon);
@@ -137,15 +141,13 @@ std::string WeatherSkill::start(std::string city, bool detal) {
         " гектопаскаль.\n" + "Сегодня: от " + doubleToSplitString(temp_min) +
         " градусов, до " + doubleToSplitString(temp_max) +
         " градусов. Рассвет в " + sunrise + ", закат в " + sunset + ".\n";
-    // LLMMessage userMessage = {"user", std::move(message)};
-    // caseAgreement.messages.push_back(std::move(userMessage));
-    // json j = ollama.chat(caseAgreement);
 
-    // g_skills.tts->speak(j["message"]["content"].get<std::string>());
     g_skills.tts->speak(message, instructions);
 
   } catch (const std::exception &e) {
-    std::cout << "Ошибка получения погоды" << e.what() << "\n\n";
+    g_skills.tts->speak("Ошибка получения погды, сервер не доступен",
+                        instructions);
+    spdlog::error("Ошибка получения погды: {}", e.what());
   }
   busy = false;
   return message;
@@ -178,8 +180,13 @@ WeatherSkill::Geo WeatherSkill::geoCoding(const std::string &city) {
       result.append(data, len);
       return len;
     });
-    json curlJson = json::parse(result);
-    cityResult = curlJson["cityName"];
+    try {
+      json curlJson = json::parse(result);
+      cityResult = curlJson["cityName"];
+    } catch (const std::exception &e) {
+      spdlog::error("Неверный ответ от freeIPapi: {}", result);
+      throw;
+    }
     result.clear();
   }
 
@@ -188,9 +195,14 @@ WeatherSkill::Geo WeatherSkill::geoCoding(const std::string &city) {
                 result.append(data, len);
                 return len;
               });
-  json geoJson = json::parse(result)["results"][0];
-  return {.lat = geoJson["latitude"].get<double>(),
-          .lon = geoJson["longitude"].get<double>()};
+  try {
+    json geoJson = json::parse(result)["results"][0];
+    return {.lat = geoJson["latitude"].get<double>(),
+            .lon = geoJson["longitude"].get<double>()};
+  } catch (const std::exception &e) {
+    spdlog::error("Неверный ответ от Geo Coding API: {}", result);
+    throw;
+  }
 }
 
 WeatherOWMResponse WeatherSkill::owmProvider(double lat, double lon) {
@@ -203,6 +215,10 @@ WeatherOWMResponse WeatherSkill::owmProvider(double lat, double lon) {
                   result.append(data, len);
                   return len;
                 });
+  auto response = json::parse(result);
+  if (response.value("cod", 200) != 200)
+    throw std::runtime_error("Ошибка OWM: " +
+                             response.value("message", "Ошибка API"));
   WeatherOWMResponse owmResponse = json::parse(result);
   return owmResponse;
 }
