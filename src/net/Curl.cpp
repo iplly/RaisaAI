@@ -66,8 +66,8 @@ void Curl::get(const std::string &param, const BodyCallback &onBody,
   }
   std::string cacheBuffer;
   BodyCallback wrapper = [&](const char *data, size_t len) {
-    onBody(data, len);
-    if (!noCache)
+    size_t n = onBody(data, len);
+    if (n == len && !noCache)
       cacheBuffer.append(data, len);
     return len;
   };
@@ -109,9 +109,25 @@ std::optional<std::string> Curl::getCached(const std::string &request) {
 }
 void Curl::putCached(const std::string &request, const std::string &response,
                      unsigned int ttl) {
+  if (ttl == 0)
+    return;
   std::lock_guard<std::mutex> lg(mtx);
   cache[request] = {response, std::chrono::steady_clock::now() +
                                   std::chrono::seconds(ttl)};
+}
+void Curl::clearExpired() {
+  auto now = std::chrono::steady_clock::now();
+  auto last = lastCleanup.load(std::memory_order_relaxed);
+  if (now - last < cleanupInterval)
+    return;
+
+  if (!lastCleanup.compare_exchange_strong(last, now,
+                                           std::memory_order_relaxed))
+    return;
+
+  std::lock_guard<std::mutex> lg(mtx);
+  std::erase_if(cache,
+                [now](const auto &kv) { return kv.second.expiry < now; });
 }
 Curl::~Curl() {
   curl_easy_cleanup(curl);

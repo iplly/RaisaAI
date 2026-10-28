@@ -56,8 +56,9 @@ public:
   const std::function<json()> tool = weatherTool;
   std::string execute(json) override;
   std::string start(std::string, bool);
+  WeatherCommonResponse commonCurrent(double lat, double lon);
   WeatherOWMResponse owmProvider(double lat, double lon);
-  WeatherResponse omProvider();
+  WeatherOMResponse omProvider();
   WeatherSkill();
   Geo geoCoding(const std::string &city = "");
 };

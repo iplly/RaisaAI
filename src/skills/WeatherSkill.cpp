@@ -113,8 +113,6 @@ std::string WeatherSkill::start(std::string city, bool detal) {
   try {
     Geo geo = geoCoding(city);
 
-    // Ollama ollama;
-
     WeatherOWMResponse meteo = owmProvider(geo.lat, geo.lon);
     double temp = meteo.main.temp;
     double feels = meteo.main.feels_like;
@@ -168,6 +166,11 @@ WeatherSkill::WeatherSkill() {
               .num_predict = 1024,
           },
       .messages = {{.role = "system", .content = weatherReportPrompt}}};
+}
+
+WeatherCommonResponse WeatherSkill::commonCurrent(double lat, double lon) {
+  WeatherOWMResponse OWM = owmProvider(lat, lon);
+  return {};
 }
 
 WeatherSkill::Geo WeatherSkill::geoCoding(const std::string &city) {
